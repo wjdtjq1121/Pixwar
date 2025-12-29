@@ -636,7 +636,7 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.8.1</span>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.8.2</span>
             <h1>Pixwar</h1>
         </div>
 
@@ -706,7 +706,7 @@
             <div id="roomListContainer" style="max-height: 400px; overflow-y: auto; margin: 20px 0;">
                 <!-- Room list will be inserted here -->
             </div>
-            <button class="btn btn-secondary" onclick="backToRoomAction()">뒤로</button>
+            <button class="btn btn-secondary" onclick="backToLobby()">뒤로</button>
         </div>
 
         <div id="createRoomView" class="hidden">
@@ -916,50 +916,20 @@
             }
         }
 
-        async function setNickname() {
+        function setNickname() {
             const nickname = document.getElementById('playerNickname').value.trim();
             if (!nickname || nickname.length < 2) {
                 alert('닉네임은 최소 2글자 이상이어야 합니다.');
                 return;
             }
 
-            // Check for duplicate nicknames in active sessions
-            try {
-                const nicknamesRef = window.firebaseDB.ref(window.firebaseDB.database, 'activeNicknames');
-                const snapshot = await window.firebaseDB.get(nicknamesRef);
-                const activeNicknames = snapshot.val() || {};
+            // Simple localStorage-based nickname system
+            game.playerNickname = nickname;
+            localStorage.setItem('pixwarNickname', nickname);
+            document.getElementById('displayNickname').textContent = nickname;
 
-                // Check if nickname is already in use
-                const existingEntry = Object.entries(activeNicknames).find(([key, data]) =>
-                    data.nickname === nickname && Date.now() - data.timestamp < 3600000 // Active within 1 hour
-                );
-
-                if (existingEntry) {
-                    alert('이미 사용 중인 닉네임입니다. 다른 닉네임을 선택해주세요.');
-                    return;
-                }
-
-                // Register nickname
-                const userNicknameRef = window.firebaseDB.ref(window.firebaseDB.database, `activeNicknames/${Date.now()}_${Math.random()}`);
-                await window.firebaseDB.set(userNicknameRef, {
-                    nickname: nickname,
-                    timestamp: Date.now()
-                });
-
-                // Set up cleanup on disconnect
-                window.firebaseDB.onDisconnect(userNicknameRef).remove();
-
-                game.playerNickname = nickname;
-                game.nicknameRef = userNicknameRef;
-                localStorage.setItem('pixwarNickname', nickname);
-                document.getElementById('displayNickname').textContent = nickname;
-
-                document.getElementById('nicknameInput').classList.add('hidden');
-                document.getElementById('lobbyMain').classList.remove('hidden');
-            } catch (error) {
-                console.error('Error setting nickname:', error);
-                alert('닉네임 설정 중 오류가 발생했습니다. 다시 시도해주세요.');
-            }
+            document.getElementById('nicknameInput').classList.add('hidden');
+            document.getElementById('lobbyMain').classList.remove('hidden');
         }
 
         function showHowToPlay() {
@@ -974,16 +944,10 @@
             document.getElementById('mainMenu').classList.remove('hidden');
         }
 
-        async function logout() {
+        function logout() {
             if (confirm('닉네임을 변경하시겠습니까?')) {
-                // Remove nickname from Firebase
-                if (game.nicknameRef) {
-                    await window.firebaseDB.remove(game.nicknameRef);
-                }
-
                 localStorage.removeItem('pixwarNickname');
                 game.playerNickname = null;
-                game.nicknameRef = null;
                 document.getElementById('playerNickname').value = '';
                 document.getElementById('lobbyMain').classList.add('hidden');
                 document.getElementById('nicknameInput').classList.remove('hidden');
