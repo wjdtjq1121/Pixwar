@@ -503,6 +503,50 @@
             font-size: 1.1em;
         }
 
+        .player-slot {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .player-slot.connected {
+            border-color: #4CAF50;
+            background: #f1f8f4;
+        }
+
+        .player-slot.waiting {
+            border-color: #ddd;
+            background: #f9f9f9;
+            opacity: 0.6;
+        }
+
+        .player-color-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid rgba(0,0,0,0.2);
+        }
+
+        .player-color-dot.blue { background: #2196F3; }
+        .player-color-dot.red { background: #F44336; }
+        .player-color-dot.yellow { background: #FFC107; }
+        .player-color-dot.green { background: #4CAF50; }
+
+        .player-name {
+            flex: 1;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .player-status {
+            font-size: 0.85em;
+            color: #666;
+        }
+
         /* Mobile Optimization */
         @media screen and (max-width: 768px) {
             body {
@@ -578,7 +622,7 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.7.0</span>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.7.1</span>
             <h1>Pixwar</h1>
         </div>
 
@@ -630,7 +674,10 @@
         <!-- Mode Selection -->
         <div id="lobbyMain" class="hidden">
             <h2 style="margin: 20px 0; color: #333;">게임 모드 선택</h2>
-            <p style="color: #666; margin-bottom: 20px;">환영합니다, <strong id="displayNickname"></strong>님!</p>
+            <p style="color: #666; margin-bottom: 20px;">
+                환영합니다, <strong id="displayNickname"></strong>님!
+                <button class="btn btn-secondary" onclick="logout()" style="padding: 5px 15px; font-size: 0.9em; margin-left: 10px;">닉네임 변경</button>
+            </p>
             <div class="lobby-buttons">
                 <button class="btn btn-primary" onclick="selectMode(1)">1 Player<br>(vs 3 AI)</button>
                 <button class="btn btn-success" onclick="selectMode(2)">2 Players<br>(Online)</button>
@@ -662,12 +709,18 @@
 
         <div id="createRoomView" class="hidden">
             <div class="room-info">
-                <h2>Room Created!</h2>
-                <p>Share this code with your opponent:</p>
+                <h2>방이 생성되었습니다!</h2>
+                <p>다른 플레이어들과 공유할 방 코드:</p>
                 <div class="room-code" id="displayRoomCode"></div>
-                <p class="waiting-message">Waiting for opponent to join...</p>
+                <div id="waitingPlayers" style="margin-top: 20px;">
+                    <h3 style="color: #333;">대기 중인 플레이어</h3>
+                    <div id="playersList" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                        <!-- Players will be listed here -->
+                    </div>
+                </div>
+                <p class="waiting-message" id="waitingMessage">플레이어를 기다리는 중...</p>
             </div>
-            <button class="btn btn-secondary" onclick="cancelRoom()">Cancel</button>
+            <button class="btn btn-secondary" onclick="cancelRoom()">방 나가기</button>
         </div>
 
         <div id="joinRoomView" class="hidden">
@@ -685,7 +738,7 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
-            <span class="version-badge">v1.7.0</span>
+            <span class="version-badge">v1.7.1</span>
             <h1>Pixwar</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
@@ -884,6 +937,17 @@
             document.getElementById('mainMenu').classList.remove('hidden');
         }
 
+        function logout() {
+            if (confirm('닉네임을 변경하시겠습니까?')) {
+                localStorage.removeItem('pixwarNickname');
+                game.playerNickname = null;
+                document.getElementById('playerNickname').value = '';
+                document.getElementById('lobbyMain').classList.add('hidden');
+                document.getElementById('nicknameInput').classList.remove('hidden');
+                document.getElementById('playerNickname').focus();
+            }
+        }
+
         function backToModeSelection() {
             document.getElementById('roomAction').classList.add('hidden');
             document.getElementById('roomListView').classList.add('hidden');
@@ -1019,6 +1083,45 @@
             }
         }
 
+        // Update waiting room player list
+        function updateWaitingRoom(roomData) {
+            const playersList = document.getElementById('playersList');
+            const waitingMessage = document.getElementById('waitingMessage');
+
+            if (!playersList) return;
+
+            playersList.innerHTML = '';
+
+            const colors = ['blue', 'red', 'yellow', 'green'];
+            const requiredPlayers = roomData.requiredPlayers;
+
+            for (let i = 0; i < requiredPlayers; i++) {
+                const player = roomData.players[i];
+                const playerSlot = document.createElement('div');
+                playerSlot.className = `player-slot ${player.connected ? 'connected' : 'waiting'}`;
+
+                const colorDot = document.createElement('div');
+                colorDot.className = `player-color-dot ${colors[i]}`;
+
+                const playerName = document.createElement('div');
+                playerName.className = 'player-name';
+                playerName.textContent = player.connected ? player.name : '대기 중...';
+
+                const playerStatus = document.createElement('div');
+                playerStatus.className = 'player-status';
+                playerStatus.textContent = player.connected ? (player.isAI ? 'AI' : '접속') : '빈 슬롯';
+
+                playerSlot.appendChild(colorDot);
+                playerSlot.appendChild(playerName);
+                playerSlot.appendChild(playerStatus);
+
+                playersList.appendChild(playerSlot);
+            }
+
+            const connectedPlayers = Object.values(roomData.players).filter(p => p.connected && !p.isAI).length;
+            waitingMessage.textContent = `${connectedPlayers}/${requiredPlayers} 플레이어 참가 중...`;
+        }
+
         // Listen for players joining (updated for multi-player)
         function listenForPlayers(roomCode) {
             const roomRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}`);
@@ -1029,6 +1132,9 @@
 
                 const connectedPlayers = Object.values(roomData.players).filter(p => p.connected && !p.isAI).length;
                 console.log(`Players: ${connectedPlayers}/${roomData.requiredPlayers}`);
+
+                // Update waiting room UI
+                updateWaitingRoom(roomData);
 
                 // Update room data
                 const currentPlayersRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/currentPlayers`);
@@ -1177,8 +1283,12 @@
 
                 console.log(`Joined room: ${roomCode} as Player ${availableSlot} (${game.playerColor})`);
 
-                // Hide room list, listen for game start
+                // Hide room list, show waiting room
                 document.getElementById('roomListView').classList.add('hidden');
+                document.getElementById('displayRoomCode').textContent = roomCode;
+                document.getElementById('createRoomView').classList.remove('hidden');
+
+                // Listen for game start
                 listenForPlayers(roomCode);
             } catch (error) {
                 console.error('Error joining room:', error);
@@ -2315,6 +2425,7 @@
         // Make functions globally accessible
         window.showNicknameInput = showNicknameInput;
         window.setNickname = setNickname;
+        window.logout = logout;
         window.showHowToPlay = showHowToPlay;
         window.backToMainMenu = backToMainMenu;
         window.selectMode = selectMode;
