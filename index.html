@@ -636,7 +636,7 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.8.2</span>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.8.3</span>
             <h1>Pixwar</h1>
         </div>
 
@@ -744,7 +744,7 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
-            <span class="version-badge">v1.8.1</span>
+            <span class="version-badge">v1.8.3</span>
             <h1>Pixwar</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
@@ -902,15 +902,26 @@
             }
         });
 
+        // Utility function to hide all screens
+        function hideAllScreens() {
+            document.getElementById('mainMenu').classList.add('hidden');
+            document.getElementById('nicknameInput').classList.add('hidden');
+            document.getElementById('howToPlay').classList.add('hidden');
+            document.getElementById('lobbyMain').classList.add('hidden');
+            document.getElementById('roomListView').classList.add('hidden');
+            document.getElementById('createRoomView').classList.add('hidden');
+            document.getElementById('joinRoomView').classList.add('hidden');
+        }
+
         function showNicknameInput() {
             const savedNickname = localStorage.getItem('pixwarNickname');
             if (savedNickname) {
                 game.playerNickname = savedNickname;
                 document.getElementById('displayNickname').textContent = savedNickname;
-                document.getElementById('mainMenu').classList.add('hidden');
+                hideAllScreens();
                 document.getElementById('lobbyMain').classList.remove('hidden');
             } else {
-                document.getElementById('mainMenu').classList.add('hidden');
+                hideAllScreens();
                 document.getElementById('nicknameInput').classList.remove('hidden');
                 document.getElementById('playerNickname').focus();
             }
@@ -928,19 +939,17 @@
             localStorage.setItem('pixwarNickname', nickname);
             document.getElementById('displayNickname').textContent = nickname;
 
-            document.getElementById('nicknameInput').classList.add('hidden');
+            hideAllScreens();
             document.getElementById('lobbyMain').classList.remove('hidden');
         }
 
         function showHowToPlay() {
-            document.getElementById('mainMenu').classList.add('hidden');
+            hideAllScreens();
             document.getElementById('howToPlay').classList.remove('hidden');
         }
 
         function backToMainMenu() {
-            document.getElementById('nicknameInput').classList.add('hidden');
-            document.getElementById('howToPlay').classList.add('hidden');
-            document.getElementById('lobbyMain').classList.add('hidden');
+            hideAllScreens();
             document.getElementById('mainMenu').classList.remove('hidden');
         }
 
@@ -949,15 +958,20 @@
                 localStorage.removeItem('pixwarNickname');
                 game.playerNickname = null;
                 document.getElementById('playerNickname').value = '';
-                document.getElementById('lobbyMain').classList.add('hidden');
+                hideAllScreens();
                 document.getElementById('nicknameInput').classList.remove('hidden');
                 document.getElementById('playerNickname').focus();
             }
         }
 
         function backToLobby() {
-            document.getElementById('roomListView').classList.add('hidden');
-            document.getElementById('createRoomView').classList.add('hidden');
+            // Clean up room list listener if exists
+            if (game.roomListListener) {
+                game.roomListListener();
+                game.roomListListener = null;
+            }
+
+            hideAllScreens();
             document.getElementById('lobbyMain').classList.remove('hidden');
         }
 
@@ -1049,7 +1063,7 @@
 
                 // Show room code to user
                 document.getElementById('displayRoomCode').textContent = roomCode;
-                document.getElementById('lobbyMain').classList.add('hidden');
+                hideAllScreens();
                 document.getElementById('createRoomView').classList.remove('hidden');
 
                 // Show start button for host
@@ -1230,7 +1244,7 @@
 
         // Show room list
         async function showRoomList() {
-            document.getElementById('lobbyMain').classList.add('hidden');
+            hideAllScreens();
             document.getElementById('roomListView').classList.remove('hidden');
 
             // Listen to all rooms
@@ -1246,6 +1260,8 @@
                 const roomListContainer = document.getElementById('roomListContainer');
                 roomListContainer.innerHTML = '';
 
+                console.log('Room list updated:', rooms); // Debug log
+
                 if (!rooms) {
                     roomListContainer.innerHTML = '<div class="no-rooms">사용 가능한 방이 없습니다.<br>방을 직접 만들어보세요!</div>';
                     return;
@@ -1254,10 +1270,14 @@
                 const roomList = Object.entries(rooms)
                     .filter(([code, data]) => {
                         // Filter: not full and not started
-                        return !data.gameState.gameStarted &&
+                        const isValid = data && data.gameState && !data.gameState.gameStarted &&
                                data.currentPlayers < data.maxPlayers;
+                        console.log(`Room ${code}: valid=${isValid}, data:`, data); // Debug log
+                        return isValid;
                     })
                     .sort((a, b) => b[1].createdAt - a[1].createdAt); // Sort by newest first
+
+                console.log('Filtered room list:', roomList.length); // Debug log
 
                 if (roomList.length === 0) {
                     roomListContainer.innerHTML = '<div class="no-rooms">참가 가능한 방이 없습니다.<br>방을 직접 만들어보세요!</div>';
@@ -1361,8 +1381,8 @@
 
                 console.log(`Joined room: ${roomCode} as Player ${availableSlot} (${game.playerColor})`);
 
-                // Hide room list, show waiting room
-                document.getElementById('roomListView').classList.add('hidden');
+                // Hide all screens, show waiting room
+                hideAllScreens();
                 document.getElementById('displayRoomCode').textContent = roomCode;
                 document.getElementById('createRoomView').classList.remove('hidden');
 
@@ -1384,14 +1404,14 @@
                 await window.firebaseDB.remove(roomRef);
             }
 
-            document.getElementById('createRoomView').classList.add('hidden');
+            hideAllScreens();
             document.getElementById('lobbyMain').classList.remove('hidden');
             game.roomCode = null;
         }
 
         // Cancel join
         function cancelJoin() {
-            document.getElementById('joinRoomView').classList.add('hidden');
+            hideAllScreens();
             document.getElementById('lobbyMain').classList.remove('hidden');
             document.getElementById('roomCodeInput').value = '';
         }
