@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Multiplayer Blokus - 2 Players</title>
+    <title>Pixwar - Multiplayer Blokus</title>
     <style>
         * {
             margin: 0;
@@ -156,6 +156,8 @@
 
         .player-info.blue { background: #2196F3; color: white; }
         .player-info.red { background: #F44336; color: white; }
+        .player-info.yellow { background: #FFC107; color: #333; }
+        .player-info.green { background: #4CAF50; color: white; }
 
         .player-info .name {
             font-weight: bold;
@@ -233,6 +235,8 @@
 
         .cell.filled.blue { background: #2196F3; }
         .cell.filled.red { background: #F44336; }
+        .cell.filled.yellow { background: #FFC107; }
+        .cell.filled.green { background: #4CAF50; }
 
         .cell.preview {
             opacity: 0.6;
@@ -321,6 +325,8 @@
 
         .piece-cell.filled.blue { background: #2196F3; }
         .piece-cell.filled.red { background: #F44336; }
+        .piece-cell.filled.yellow { background: #FFC107; }
+        .piece-cell.filled.green { background: #4CAF50; }
 
         .controls {
             margin-top: 20px;
@@ -513,15 +519,27 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.5.0</span>
-            <h1>Multiplayer Blokus</h1>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.6.0</span>
+            <h1>Pixwar</h1>
         </div>
-        <p>2-Player Online Game</p>
+        <p>Multiplayer Blokus Game</p>
 
         <div id="lobbyMain">
+            <h2 style="margin: 20px 0; color: #333;">Select Game Mode</h2>
+            <div class="lobby-buttons">
+                <button class="btn btn-primary" onclick="selectMode(1)">1 Player<br>(vs 3 AI)</button>
+                <button class="btn btn-success" onclick="selectMode(2)">2 Players<br>(Online)</button>
+                <button class="btn" style="background: #FF9800; color: white;" onclick="selectMode(3)">3 Players<br>(+ 1 AI)</button>
+                <button class="btn btn-danger" onclick="selectMode(4)">4 Players<br>(Online)</button>
+            </div>
+        </div>
+
+        <div id="modeSelected" class="hidden">
+            <h2 style="margin: 20px 0; color: #333;"><span id="selectedModeText"></span></h2>
             <div class="lobby-buttons">
                 <button class="btn btn-primary" onclick="createRoom()">Create Room</button>
                 <button class="btn btn-success" onclick="showJoinInput()">Join Room</button>
+                <button class="btn btn-secondary" onclick="backToModeSelection()">Back</button>
             </div>
         </div>
 
@@ -550,8 +568,8 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
-            <span class="version-badge">v1.5.0</span>
-            <h1>Multiplayer Blokus</h1>
+            <span class="version-badge">v1.6.0</span>
+            <h1>Pixwar</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
             </div>
@@ -673,14 +691,17 @@
         // GAME STATE
         // ============================================================================
         const game = {
+            mode: null, // 1, 2, 3, or 4 players
             roomCode: null,
-            playerId: null, // 0 (blue) or 1 (red)
-            playerColor: null, // 'blue' or 'red'
+            playerId: null, // 0-3
+            playerColor: null, // 'blue', 'red', 'yellow', or 'green'
             isHost: false,
             board: Array(14).fill(null).map(() => Array(14).fill(null)),
             players: [
-                { name: 'Player 1', color: 'blue', pieces: [], cornerX: 0, cornerY: 0 },
-                { name: 'Player 2', color: 'red', pieces: [], cornerX: 13, cornerY: 13 }
+                { name: 'Player 1', color: 'blue', pieces: [], cornerX: 0, cornerY: 0, isAI: false },
+                { name: 'Player 2', color: 'red', pieces: [], cornerX: 13, cornerY: 0, isAI: false },
+                { name: 'Player 3', color: 'yellow', pieces: [], cornerX: 13, cornerY: 13, isAI: false },
+                { name: 'Player 4', color: 'green', pieces: [], cornerX: 0, cornerY: 13, isAI: false }
             ],
             currentPlayerIndex: 0,
             selectedPieceIndex: null,
@@ -1078,8 +1099,8 @@
                         cell.dataset.row = r;
                         cell.dataset.col = c;
 
-                        // Mark corners
-                        if ((r === 0 && c === 0) || (r === 13 && c === 13)) {
+                        // Mark all 4 corners
+                        if ((r === 0 && c === 0) || (r === 0 && c === 13) || (r === 13 && c === 0) || (r === 13 && c === 13)) {
                             cell.classList.add('corner');
                         }
 
@@ -1096,20 +1117,22 @@
 
                     cell.className = 'cell';
 
-                    // Corners
-                    if ((r === 0 && c === 0) || (r === 13 && c === 13)) {
+                    // Mark all 4 corners
+                    if ((r === 0 && c === 0) || (r === 0 && c === 13) || (r === 13 && c === 0) || (r === 13 && c === 13)) {
                         cell.classList.add('corner');
                     }
 
-                    // Highlight starting corner for current player's first piece
-                    const currentPlayer = game.players[game.currentPlayerIndex];
-                    const isFirstPiece = currentPlayer && currentPlayer.pieces.every(p => !p.used);
+                    // Highlight starting corners for each player's first piece
+                    for (let i = 0; i < game.players.length; i++) {
+                        const player = game.players[i];
+                        const isFirstPiece = player && player.pieces && player.pieces.every(p => !p.used);
 
-                    if (isFirstPiece && game.currentPlayerIndex === game.playerId &&
-                        r === currentPlayer.cornerY && c === currentPlayer.cornerX) {
-                        cell.classList.add('start-corner');
-                        cell.style.background = currentPlayer.color === 'blue' ? '#2196F3' : '#F44336';
-                        cell.style.opacity = '0.5';
+                        if (isFirstPiece && r === player.cornerY && c === player.cornerX) {
+                            cell.classList.add('start-corner');
+                            const colors = { blue: '#2196F3', red: '#F44336', yellow: '#FFC107', green: '#4CAF50' };
+                            cell.style.background = colors[player.color] || player.color;
+                            cell.style.opacity = '0.5';
+                        }
                     }
 
                     // Filled cells
@@ -1216,13 +1239,21 @@
 
         function updateMessage() {
             const messageBox = document.getElementById('messageBox');
+            const currentPlayer = game.players[game.currentPlayerIndex];
             const isMyTurn = game.currentPlayerIndex === game.playerId;
 
-            if (isMyTurn) {
+            if (currentPlayer.isAI) {
+                messageBox.textContent = `AI (${currentPlayer.color}) is thinking...`;
+                messageBox.className = 'message opponent-turn';
+                // Trigger AI move after a short delay
+                setTimeout(() => {
+                    aiMove();
+                }, 500);
+            } else if (isMyTurn) {
                 messageBox.textContent = 'Your turn! Select a piece and place it on the board.';
                 messageBox.className = 'message your-turn';
             } else {
-                messageBox.textContent = "Opponent's turn. Please wait...";
+                messageBox.textContent = `${currentPlayer.name}'s turn. Please wait...`;
                 messageBox.className = 'message opponent-turn';
             }
         }
@@ -1312,18 +1343,22 @@
                 if (!game.board[r][c]) {
                     cell.className = 'cell';
 
-                    if ((r === 0 && c === 0) || (r === 13 && c === 13)) {
+                    // Mark all 4 corners
+                    if ((r === 0 && c === 0) || (r === 0 && c === 13) || (r === 13 && c === 0) || (r === 13 && c === 13)) {
                         cell.classList.add('corner');
                     }
 
-                    const currentPlayer = game.players[game.currentPlayerIndex];
-                    const isFirstPiece = currentPlayer && currentPlayer.pieces.every(p => !p.used);
+                    // Highlight starting corners for each player's first piece
+                    for (let i = 0; i < game.players.length; i++) {
+                        const player = game.players[i];
+                        const isFirstPiece = player && player.pieces && player.pieces.every(p => !p.used);
 
-                    if (isFirstPiece && game.currentPlayerIndex === game.playerId &&
-                        r === currentPlayer.cornerY && c === currentPlayer.cornerX) {
-                        cell.classList.add('start-corner');
-                        cell.style.background = currentPlayer.color === 'blue' ? '#2196F3' : '#F44336';
-                        cell.style.opacity = '0.5';
+                        if (isFirstPiece && r === player.cornerY && c === player.cornerX) {
+                            cell.classList.add('start-corner');
+                            const colors = { blue: '#2196F3', red: '#F44336', yellow: '#FFC107', green: '#4CAF50' };
+                            cell.style.background = colors[player.color] || player.color;
+                            cell.style.opacity = '0.5';
+                        }
                     }
                 }
             });
@@ -1542,7 +1577,8 @@
 
             // Switch turn
             const oldPlayerIndex = game.currentPlayerIndex;
-            game.currentPlayerIndex = (game.currentPlayerIndex + 1) % 2;
+            const numPlayers = game.mode === 1 ? 4 : (game.mode === 2 ? 2 : (game.mode === 3 ? 4 : 4));
+            game.currentPlayerIndex = (game.currentPlayerIndex + 1) % numPlayers;
 
             console.log('🔄 Turn switched:', oldPlayerIndex, '→', game.currentPlayerIndex);
 
@@ -1583,8 +1619,9 @@
 
             game.passCount++;
 
-            // Check if both players passed
-            if (game.passCount >= 2) {
+            // Check if all players passed
+            const numPlayers = game.mode === 1 ? 4 : (game.mode === 2 ? 2 : (game.mode === 3 ? 4 : 4));
+            if (game.passCount >= numPlayers) {
                 // Mark game as over
                 try {
                     const gameStateRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}/gameState/gameOver`);
@@ -1655,6 +1692,241 @@
         }
 
         // ============================================================================
+        // GAME MODE SELECTION
+        // ============================================================================
+
+        function selectMode(mode) {
+            game.mode = mode;
+            const modeText = {
+                1: '1 Player (vs 3 AI)',
+                2: '2 Players (Online)',
+                3: '3 Players (+ 1 AI)',
+                4: '4 Players (Online)'
+            };
+
+            document.getElementById('selectedModeText').textContent = modeText[mode];
+            document.getElementById('lobbyMain').classList.add('hidden');
+
+            // For 1-player mode, start immediately without creating/joining room
+            if (mode === 1) {
+                startSinglePlayerGame();
+            } else {
+                document.getElementById('modeSelected').classList.remove('hidden');
+            }
+        }
+
+        function backToModeSelection() {
+            document.getElementById('modeSelected').classList.add('hidden');
+            document.getElementById('lobbyMain').classList.remove('hidden');
+            game.mode = null;
+        }
+
+        // Start single-player game (1 human vs 3 AI)
+        function startSinglePlayerGame() {
+            game.playerId = 0;
+            game.playerColor = 'blue';
+            game.isHost = true;
+            game.roomCode = 'LOCAL';
+
+            // Set AI players
+            game.players[1].isAI = true;
+            game.players[2].isAI = true;
+            game.players[3].isAI = true;
+
+            // Hide lobby, show game
+            document.getElementById('lobbyScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.remove('hidden');
+            document.getElementById('gameRoomCode').textContent = 'Single Player';
+
+            // Initialize game
+            initializePieces();
+            renderBoard();
+            renderPlayersInfo();
+            renderPieces();
+
+            game.gameStarted = true;
+            updateMessage();
+        }
+
+        // ============================================================================
+        // AI LOGIC
+        // ============================================================================
+
+        function evaluateMove(playerIndex, pieceIndex, shape, row, col) {
+            const player = game.players[playerIndex];
+            let score = 0;
+
+            // 1. Piece size priority (larger pieces = higher score)
+            const pieceSize = shape.flat().filter(cell => cell === 1).length;
+            score += pieceSize * 10;
+
+            // 2. Board position (prefer center)
+            const centerRow = 7, centerCol = 7;
+            let totalDist = 0;
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[0].length; c++) {
+                    if (shape[r][c] === 1) {
+                        const boardR = row + r;
+                        const boardC = col + c;
+                        const dist = Math.abs(centerRow - boardR) + Math.abs(centerCol - boardC);
+                        totalDist += dist;
+                    }
+                }
+            }
+            score -= totalDist * 2;
+
+            // 3. Corner generation (new corners create expansion opportunities)
+            let newCorners = 0;
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[0].length; c++) {
+                    if (shape[r][c] === 1) {
+                        const boardR = row + r;
+                        const boardC = col + c;
+
+                        // Check diagonal corners
+                        const corners = [
+                            [boardR - 1, boardC - 1],
+                            [boardR - 1, boardC + 1],
+                            [boardR + 1, boardC - 1],
+                            [boardR + 1, boardC + 1]
+                        ];
+
+                        for (const [cr, cc] of corners) {
+                            if (cr >= 0 && cr < 14 && cc >= 0 && cc < 14 && !game.board[cr][cc]) {
+                                newCorners++;
+                            }
+                        }
+                    }
+                }
+            }
+            score += newCorners * 20;
+
+            // 4. Opponent blocking
+            let blocking = 0;
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[0].length; c++) {
+                    if (shape[r][c] === 1) {
+                        const boardR = row + r;
+                        const boardC = col + c;
+
+                        // Check adjacent cells for opponent pieces
+                        const adjacent = [
+                            [boardR - 1, boardC],
+                            [boardR + 1, boardC],
+                            [boardR, boardC - 1],
+                            [boardR, boardC + 1]
+                        ];
+
+                        for (const [ar, ac] of adjacent) {
+                            if (ar >= 0 && ar < 14 && ac >= 0 && ac < 14 &&
+                                game.board[ar][ac] && game.board[ar][ac] !== player.color) {
+                                blocking++;
+                            }
+                        }
+                    }
+                }
+            }
+            score += blocking * 5;
+
+            // 5. First move bonus
+            const isFirstPiece = player.pieces.every(p => !p.used);
+            if (isFirstPiece) {
+                score += 50;
+            }
+
+            return score;
+        }
+
+        async function aiMove() {
+            const playerIndex = game.currentPlayerIndex;
+            const player = game.players[playerIndex];
+
+            console.log(`🤖 AI turn for player ${playerIndex} (${player.color})`);
+
+            let bestMove = null;
+            let bestScore = -Infinity;
+
+            // Try all available pieces
+            for (let pieceIndex = 0; pieceIndex < player.pieces.length; pieceIndex++) {
+                const piece = player.pieces[pieceIndex];
+                if (piece.used) continue;
+
+                // Try all rotations and flips
+                for (let rotation = 0; rotation < 4; rotation++) {
+                    for (let flipped = 0; flipped < 2; flipped++) {
+                        piece.rotation = rotation;
+                        piece.flipped = flipped === 1;
+                        const shape = getCurrentShape(piece);
+
+                        // Try all board positions
+                        for (let row = 0; row < 14; row++) {
+                            for (let col = 0; col < 14; col++) {
+                                if (isValidPlacement(playerIndex, shape, row, col)) {
+                                    const score = evaluateMove(playerIndex, pieceIndex, shape, row, col);
+                                    if (score > bestScore) {
+                                        bestScore = score;
+                                        bestMove = { pieceIndex, row, col, rotation, flipped: flipped === 1 };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Reset piece transformation
+                piece.rotation = 0;
+                piece.flipped = false;
+            }
+
+            if (bestMove) {
+                console.log(`🤖 AI found move:`, bestMove, `Score: ${bestScore}`);
+
+                // Apply the move
+                const piece = player.pieces[bestMove.pieceIndex];
+                piece.rotation = bestMove.rotation;
+                piece.flipped = bestMove.flipped;
+                const shape = getCurrentShape(piece);
+
+                // Place piece
+                for (let r = 0; r < shape.length; r++) {
+                    for (let c = 0; c < shape[0].length; c++) {
+                        if (shape[r][c] === 1) {
+                            game.board[bestMove.row + r][bestMove.col + c] = player.color;
+                        }
+                    }
+                }
+
+                piece.used = true;
+                game.passCount = 0;
+
+                // Determine number of active players based on mode
+                const numPlayers = game.mode === 1 ? 4 : (game.mode === 2 ? 2 : (game.mode === 3 ? 4 : 4));
+                game.currentPlayerIndex = (game.currentPlayerIndex + 1) % numPlayers;
+
+                // For single player mode, just update UI
+                if (game.mode === 1) {
+                    renderBoard();
+                    renderPlayersInfo();
+                    renderPieces();
+                    updateMessage();
+
+                    // Check if next player is also AI
+                    setTimeout(() => {
+                        if (game.players[game.currentPlayerIndex].isAI) {
+                            aiMove();
+                        }
+                    }, 500);
+                } else {
+                    // For multiplayer with AI, sync to Firebase
+                    await syncGameState();
+                }
+            } else {
+                console.log(`🤖 AI has no valid moves, skipping turn`);
+                skipTurn();
+            }
+        }
+
+        // ============================================================================
         // LEAVE GAME
         // ============================================================================
 
@@ -1705,6 +1977,8 @@
         }
 
         // Make functions globally accessible
+        window.selectMode = selectMode;
+        window.backToModeSelection = backToModeSelection;
         window.createRoom = createRoom;
         window.showJoinInput = showJoinInput;
         window.joinRoom = joinRoom;
@@ -1718,7 +1992,7 @@
         window.leaveGame = leaveGame;
         window.backToLobby = backToLobby;
 
-        console.log('Multiplayer Blokus initialized');
+        console.log('Pixwar initialized');
     </script>
 </body>
 </html>
