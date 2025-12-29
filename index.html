@@ -547,6 +547,20 @@
             color: #666;
         }
 
+        .player-status.ready {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .player-status.not-ready {
+            color: #F44336;
+        }
+
+        .player-slot.host::after {
+            content: '👑';
+            margin-left: 10px;
+        }
+
         /* Mobile Optimization */
         @media screen and (max-width: 768px) {
             body {
@@ -622,7 +636,7 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.7.1</span>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.8.0</span>
             <h1>Pixwar</h1>
         </div>
 
@@ -671,31 +685,19 @@
             <button class="btn btn-secondary" onclick="backToMainMenu()">뒤로</button>
         </div>
 
-        <!-- Mode Selection -->
+        <!-- Lobby Main -->
         <div id="lobbyMain" class="hidden">
-            <h2 style="margin: 20px 0; color: #333;">게임 모드 선택</h2>
+            <h2 style="margin: 20px 0; color: #333;">게임 로비</h2>
             <p style="color: #666; margin-bottom: 20px;">
                 환영합니다, <strong id="displayNickname"></strong>님!
                 <button class="btn btn-secondary" onclick="logout()" style="padding: 5px 15px; font-size: 0.9em; margin-left: 10px;">닉네임 변경</button>
             </p>
             <div class="lobby-buttons">
-                <button class="btn btn-primary" onclick="selectMode(1)">1 Player<br>(vs 3 AI)</button>
-                <button class="btn btn-success" onclick="selectMode(2)">2 Players<br>(Online)</button>
-                <button class="btn" style="background: #FF9800; color: white;" onclick="selectMode(3)">3 Players<br>(+ 1 AI)</button>
-                <button class="btn btn-danger" onclick="selectMode(4)">4 Players<br>(Online)</button>
+                <button class="btn btn-primary" onclick="createRoom()" style="font-size: 1.3em; padding: 20px 40px;">방 만들기</button>
+                <button class="btn btn-success" onclick="showRoomList()" style="font-size: 1.3em; padding: 20px 40px;">방 목록</button>
             </div>
             <br>
             <button class="btn btn-secondary" onclick="backToMainMenu()">뒤로</button>
-        </div>
-
-        <!-- Room Action Selection -->
-        <div id="roomAction" class="hidden">
-            <h2 style="margin: 20px 0; color: #333;"><span id="selectedModeText"></span></h2>
-            <div class="lobby-buttons">
-                <button class="btn btn-primary" onclick="createRoom()">방 만들기</button>
-                <button class="btn btn-success" onclick="showRoomList()">방 목록</button>
-                <button class="btn btn-secondary" onclick="backToModeSelection()">뒤로</button>
-            </div>
         </div>
 
         <!-- Room List -->
@@ -709,16 +711,20 @@
 
         <div id="createRoomView" class="hidden">
             <div class="room-info">
-                <h2>방이 생성되었습니다!</h2>
-                <p>다른 플레이어들과 공유할 방 코드:</p>
-                <div class="room-code" id="displayRoomCode"></div>
+                <h2>대기실</h2>
+                <p>방 코드: <span class="room-code" id="displayRoomCode" style="font-size: 1.5em;"></span></p>
                 <div id="waitingPlayers" style="margin-top: 20px;">
-                    <h3 style="color: #333;">대기 중인 플레이어</h3>
+                    <h3 style="color: #333;">플레이어 목록</h3>
                     <div id="playersList" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
                         <!-- Players will be listed here -->
                     </div>
                 </div>
                 <p class="waiting-message" id="waitingMessage">플레이어를 기다리는 중...</p>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-success" id="readyBtn" onclick="toggleReady()" style="display: none; font-size: 1.2em; padding: 15px 30px;">준비</button>
+                    <button class="btn btn-primary" id="startBtn" onclick="startGameByHost()" style="display: none; font-size: 1.2em; padding: 15px 30px;">게임 시작</button>
+                </div>
             </div>
             <button class="btn btn-secondary" onclick="cancelRoom()">방 나가기</button>
         </div>
@@ -738,7 +744,7 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
-            <span class="version-badge">v1.7.1</span>
+            <span class="version-badge">v1.8.0</span>
             <h1>Pixwar</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
@@ -910,19 +916,50 @@
             }
         }
 
-        function setNickname() {
+        async function setNickname() {
             const nickname = document.getElementById('playerNickname').value.trim();
             if (!nickname || nickname.length < 2) {
                 alert('닉네임은 최소 2글자 이상이어야 합니다.');
                 return;
             }
 
-            game.playerNickname = nickname;
-            localStorage.setItem('pixwarNickname', nickname);
-            document.getElementById('displayNickname').textContent = nickname;
+            // Check for duplicate nicknames in active sessions
+            try {
+                const nicknamesRef = window.firebaseDB.ref(window.firebaseDB.database, 'activeNicknames');
+                const snapshot = await window.firebaseDB.get(nicknamesRef);
+                const activeNicknames = snapshot.val() || {};
 
-            document.getElementById('nicknameInput').classList.add('hidden');
-            document.getElementById('lobbyMain').classList.remove('hidden');
+                // Check if nickname is already in use
+                const existingEntry = Object.entries(activeNicknames).find(([key, data]) =>
+                    data.nickname === nickname && Date.now() - data.timestamp < 3600000 // Active within 1 hour
+                );
+
+                if (existingEntry) {
+                    alert('이미 사용 중인 닉네임입니다. 다른 닉네임을 선택해주세요.');
+                    return;
+                }
+
+                // Register nickname
+                const userNicknameRef = window.firebaseDB.ref(window.firebaseDB.database, `activeNicknames/${Date.now()}_${Math.random()}`);
+                await window.firebaseDB.set(userNicknameRef, {
+                    nickname: nickname,
+                    timestamp: Date.now()
+                });
+
+                // Set up cleanup on disconnect
+                window.firebaseDB.onDisconnect(userNicknameRef).remove();
+
+                game.playerNickname = nickname;
+                game.nicknameRef = userNicknameRef;
+                localStorage.setItem('pixwarNickname', nickname);
+                document.getElementById('displayNickname').textContent = nickname;
+
+                document.getElementById('nicknameInput').classList.add('hidden');
+                document.getElementById('lobbyMain').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error setting nickname:', error);
+                alert('닉네임 설정 중 오류가 발생했습니다. 다시 시도해주세요.');
+            }
         }
 
         function showHowToPlay() {
@@ -937,10 +974,16 @@
             document.getElementById('mainMenu').classList.remove('hidden');
         }
 
-        function logout() {
+        async function logout() {
             if (confirm('닉네임을 변경하시겠습니까?')) {
+                // Remove nickname from Firebase
+                if (game.nicknameRef) {
+                    await window.firebaseDB.remove(game.nicknameRef);
+                }
+
                 localStorage.removeItem('pixwarNickname');
                 game.playerNickname = null;
+                game.nicknameRef = null;
                 document.getElementById('playerNickname').value = '';
                 document.getElementById('lobbyMain').classList.add('hidden');
                 document.getElementById('nicknameInput').classList.remove('hidden');
@@ -948,41 +991,15 @@
             }
         }
 
-        function backToModeSelection() {
-            document.getElementById('roomAction').classList.add('hidden');
+        function backToLobby() {
             document.getElementById('roomListView').classList.add('hidden');
+            document.getElementById('createRoomView').classList.add('hidden');
             document.getElementById('lobbyMain').classList.remove('hidden');
-            game.mode = null;
-        }
-
-        function backToRoomAction() {
-            document.getElementById('roomListView').classList.add('hidden');
-            document.getElementById('roomAction').classList.remove('hidden');
         }
 
         // ============================================================================
-        // GAME MODE SELECTION (UPDATED)
+        // GAME MODE - REMOVED (Now dynamic player count)
         // ============================================================================
-
-        function selectMode(mode) {
-            game.mode = mode;
-            const modeText = {
-                1: '1 Player (vs 3 AI)',
-                2: '2 Players (Online)',
-                3: '3 Players (+ 1 AI)',
-                4: '4 Players (Online)'
-            };
-
-            document.getElementById('selectedModeText').textContent = modeText[mode];
-            document.getElementById('lobbyMain').classList.add('hidden');
-
-            // For 1-player mode, start immediately without creating/joining room
-            if (mode === 1) {
-                startSinglePlayerGame();
-            } else {
-                document.getElementById('roomAction').classList.remove('hidden');
-            }
-        }
 
         // ============================================================================
         // FIREBASE ROOM MANAGEMENT
@@ -1020,29 +1037,27 @@
                 flipped: false
             }));
 
-            const requiredPlayers = getRequiredPlayers(game.mode);
             const colors = ['blue', 'red', 'yellow', 'green'];
 
-            // Initialize players object
+            // Initialize players object - all slots start empty except host
             const players = {};
             const pieces = {};
 
             for (let i = 0; i < 4; i++) {
-                const isAI = (game.mode === 3 && i === 3); // Last player is AI in 3-player mode
                 players[i] = {
                     connected: i === 0,
                     color: colors[i],
-                    name: i === 0 ? game.playerNickname : (isAI ? 'AI' : `Player ${i + 1}`),
-                    isAI: isAI
+                    name: i === 0 ? game.playerNickname : null,
+                    ready: i === 0 // Host is auto-ready
                 };
                 pieces[i] = createInitialPieces();
             }
 
             const roomData = {
-                mode: game.mode,
-                requiredPlayers: requiredPlayers,
+                maxPlayers: 4,
                 currentPlayers: 1,
                 host: game.playerNickname,
+                hostId: 0,
                 players: players,
                 gameState: {
                     board: Array(14).fill(null).map(() => Array(14).fill(null)),
@@ -1070,16 +1085,19 @@
 
                 // Show room code to user
                 document.getElementById('displayRoomCode').textContent = roomCode;
-                document.getElementById('roomAction').classList.add('hidden');
+                document.getElementById('lobbyMain').classList.add('hidden');
                 document.getElementById('createRoomView').classList.remove('hidden');
+
+                // Show start button for host
+                document.getElementById('startBtn').style.display = 'inline-block';
 
                 // Listen for players joining
                 listenForPlayers(roomCode);
 
-                console.log(`Room created: ${roomCode}, Mode: ${game.mode}, Required: ${requiredPlayers}`);
+                console.log(`Room created: ${roomCode}`);
             } catch (error) {
                 console.error('Error creating room:', error);
-                alert('Failed to create room. Please check Firebase configuration.');
+                alert('방 생성에 실패했습니다. 다시 시도해주세요.');
             }
         }
 
@@ -1087,29 +1105,43 @@
         function updateWaitingRoom(roomData) {
             const playersList = document.getElementById('playersList');
             const waitingMessage = document.getElementById('waitingMessage');
+            const readyBtn = document.getElementById('readyBtn');
+            const startBtn = document.getElementById('startBtn');
 
             if (!playersList) return;
 
             playersList.innerHTML = '';
 
             const colors = ['blue', 'red', 'yellow', 'green'];
-            const requiredPlayers = roomData.requiredPlayers;
+            const connectedPlayers = Object.values(roomData.players).filter(p => p.connected).length;
+            const readyPlayers = Object.values(roomData.players).filter(p => p.connected && p.ready).length;
 
-            for (let i = 0; i < requiredPlayers; i++) {
+            // Show all 4 slots
+            for (let i = 0; i < 4; i++) {
                 const player = roomData.players[i];
                 const playerSlot = document.createElement('div');
                 playerSlot.className = `player-slot ${player.connected ? 'connected' : 'waiting'}`;
+
+                // Add host indicator
+                if (i === roomData.hostId) {
+                    playerSlot.classList.add('host');
+                }
 
                 const colorDot = document.createElement('div');
                 colorDot.className = `player-color-dot ${colors[i]}`;
 
                 const playerName = document.createElement('div');
                 playerName.className = 'player-name';
-                playerName.textContent = player.connected ? player.name : '대기 중...';
+                playerName.textContent = player.connected ? player.name : '빈 슬롯';
 
                 const playerStatus = document.createElement('div');
-                playerStatus.className = 'player-status';
-                playerStatus.textContent = player.connected ? (player.isAI ? 'AI' : '접속') : '빈 슬롯';
+                if (player.connected) {
+                    playerStatus.className = `player-status ${player.ready ? 'ready' : 'not-ready'}`;
+                    playerStatus.textContent = player.ready ? '✓ 준비 완료' : '준비 중...';
+                } else {
+                    playerStatus.className = 'player-status';
+                    playerStatus.textContent = '대기 중';
+                }
 
                 playerSlot.appendChild(colorDot);
                 playerSlot.appendChild(playerName);
@@ -1118,8 +1150,73 @@
                 playersList.appendChild(playerSlot);
             }
 
-            const connectedPlayers = Object.values(roomData.players).filter(p => p.connected && !p.isAI).length;
-            waitingMessage.textContent = `${connectedPlayers}/${requiredPlayers} 플레이어 참가 중...`;
+            waitingMessage.textContent = `${connectedPlayers}/4 플레이어 | ${readyPlayers}명 준비 완료`;
+
+            // Show/hide ready button for non-host players
+            if (game.playerId !== roomData.hostId && !roomData.gameState.gameStarted) {
+                readyBtn.style.display = 'inline-block';
+                const myPlayer = roomData.players[game.playerId];
+                if (myPlayer && myPlayer.ready) {
+                    readyBtn.textContent = '준비 취소';
+                    readyBtn.classList.remove('btn-success');
+                    readyBtn.classList.add('btn-secondary');
+                } else {
+                    readyBtn.textContent = '준비';
+                    readyBtn.classList.remove('btn-secondary');
+                    readyBtn.classList.add('btn-success');
+                }
+            } else {
+                readyBtn.style.display = 'none';
+            }
+
+            // Enable/disable start button for host
+            if (game.playerId === roomData.hostId) {
+                startBtn.disabled = connectedPlayers < 2 || readyPlayers < connectedPlayers;
+                if (startBtn.disabled) {
+                    startBtn.title = connectedPlayers < 2 ? '최소 2명 이상 필요합니다' : '모든 플레이어가 준비해야 합니다';
+                }
+            }
+        }
+
+        // Toggle ready status
+        async function toggleReady() {
+            if (!game.roomCode || game.playerId === null) return;
+
+            const playerRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}/players/${game.playerId}/ready`);
+            const snapshot = await window.firebaseDB.get(playerRef);
+            const currentReady = snapshot.val() || false;
+
+            await window.firebaseDB.set(playerRef, !currentReady);
+        }
+
+        // Host starts the game
+        async function startGameByHost() {
+            if (!game.roomCode || !game.isHost) return;
+
+            const roomRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}`);
+            const snapshot = await window.firebaseDB.get(roomRef);
+            const roomData = snapshot.val();
+
+            if (!roomData) return;
+
+            const connectedPlayers = Object.values(roomData.players).filter(p => p.connected).length;
+            const readyPlayers = Object.values(roomData.players).filter(p => p.connected && p.ready).length;
+
+            if (connectedPlayers < 2) {
+                alert('최소 2명 이상의 플레이어가 필요합니다.');
+                return;
+            }
+
+            if (readyPlayers < connectedPlayers) {
+                alert('모든 플레이어가 준비 상태여야 합니다.');
+                return;
+            }
+
+            // Mark game as started
+            const gameStartedRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}/gameState/gameStarted`);
+            await window.firebaseDB.set(gameStartedRef, true);
+
+            // Start game will be triggered by listener
         }
 
         // Listen for players joining (updated for multi-player)
@@ -1130,8 +1227,8 @@
                 const roomData = snapshot.val();
                 if (!roomData) return;
 
-                const connectedPlayers = Object.values(roomData.players).filter(p => p.connected && !p.isAI).length;
-                console.log(`Players: ${connectedPlayers}/${roomData.requiredPlayers}`);
+                const connectedPlayers = Object.values(roomData.players).filter(p => p.connected).length;
+                console.log(`Players: ${connectedPlayers}/4`);
 
                 // Update waiting room UI
                 updateWaitingRoom(roomData);
@@ -1140,9 +1237,9 @@
                 const currentPlayersRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/currentPlayers`);
                 window.firebaseDB.set(currentPlayersRef, connectedPlayers);
 
-                // Start game when all required players joined
-                if (connectedPlayers >= roomData.requiredPlayers && !roomData.gameState.gameStarted) {
-                    console.log('All players joined! Starting game...');
+                // Start game when host triggers it
+                if (roomData.gameState.gameStarted && !game.gameStarted) {
+                    console.log('Game started by host!');
                     startGame();
                 }
             });
@@ -1150,7 +1247,7 @@
 
         // Show room list
         async function showRoomList() {
-            document.getElementById('roomAction').classList.add('hidden');
+            document.getElementById('lobbyMain').classList.add('hidden');
             document.getElementById('roomListView').classList.remove('hidden');
 
             // Listen to all rooms
@@ -1173,15 +1270,14 @@
 
                 const roomList = Object.entries(rooms)
                     .filter(([code, data]) => {
-                        // Filter by mode and not full and not started
-                        return data.mode === game.mode &&
-                               !data.gameState.gameStarted &&
-                               data.currentPlayers < data.requiredPlayers;
+                        // Filter: not full and not started
+                        return !data.gameState.gameStarted &&
+                               data.currentPlayers < data.maxPlayers;
                     })
                     .sort((a, b) => b[1].createdAt - a[1].createdAt); // Sort by newest first
 
                 if (roomList.length === 0) {
-                    roomListContainer.innerHTML = '<div class="no-rooms">이 모드에 참가 가능한 방이 없습니다.</div>';
+                    roomListContainer.innerHTML = '<div class="no-rooms">참가 가능한 방이 없습니다.<br>방을 직접 만들어보세요!</div>';
                     return;
                 }
 
@@ -1189,9 +1285,9 @@
                     const roomItem = document.createElement('div');
                     roomItem.className = 'room-item';
 
-                    const isFull = roomData.currentPlayers >= roomData.requiredPlayers;
+                    const isFull = roomData.currentPlayers >= roomData.maxPlayers;
                     const statusClass = isFull ? 'full' : 'waiting';
-                    const statusText = isFull ? '가득 참' : `대기 중 (${roomData.currentPlayers}/${roomData.requiredPlayers})`;
+                    const statusText = isFull ? '가득 참' : `대기 중 (${roomData.currentPlayers}/${roomData.maxPlayers})`;
 
                     roomItem.innerHTML = `
                         <div class="room-info-left">
@@ -1242,9 +1338,8 @@
 
                 const roomData = snapshot.val();
 
-                // Check if room mode matches
-                if (roomData.mode !== game.mode) {
-                    alert('선택한 모드와 방의 모드가 다릅니다.');
+                if (roomData.gameState.gameStarted) {
+                    alert('이미 시작된 게임입니다.');
                     return;
                 }
 
@@ -1253,7 +1348,7 @@
                 const colors = ['blue', 'red', 'yellow', 'green'];
 
                 for (let i = 0; i < 4; i++) {
-                    if (!roomData.players[i].connected && !roomData.players[i].isAI) {
+                    if (!roomData.players[i].connected) {
                         availableSlot = i;
                         break;
                     }
@@ -1268,7 +1363,8 @@
                 const playerRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/players/${availableSlot}`);
                 await window.firebaseDB.update(playerRef, {
                     connected: true,
-                    name: game.playerNickname
+                    name: game.playerNickname,
+                    ready: false
                 });
 
                 // Set up disconnect handler
@@ -1279,7 +1375,6 @@
                 game.playerId = availableSlot;
                 game.playerColor = colors[availableSlot];
                 game.isHost = false;
-                game.mode = roomData.mode;
 
                 console.log(`Joined room: ${roomCode} as Player ${availableSlot} (${game.playerColor})`);
 
@@ -1287,6 +1382,9 @@
                 document.getElementById('roomListView').classList.add('hidden');
                 document.getElementById('displayRoomCode').textContent = roomCode;
                 document.getElementById('createRoomView').classList.remove('hidden');
+
+                // Show ready button for non-host players
+                document.getElementById('readyBtn').style.display = 'inline-block';
 
                 // Listen for game start
                 listenForPlayers(roomCode);
@@ -2428,13 +2526,13 @@
         window.logout = logout;
         window.showHowToPlay = showHowToPlay;
         window.backToMainMenu = backToMainMenu;
-        window.selectMode = selectMode;
-        window.backToModeSelection = backToModeSelection;
-        window.backToRoomAction = backToRoomAction;
+        window.backToLobby = backToLobby;
         window.createRoom = createRoom;
         window.showRoomList = showRoomList;
         window.joinRoom = joinRoom;
         window.joinRoomByCode = joinRoomByCode;
+        window.toggleReady = toggleReady;
+        window.startGameByHost = startGameByHost;
         window.cancelRoom = cancelRoom;
         window.cancelJoin = cancelJoin;
         window.selectPiece = selectPiece;
@@ -2443,7 +2541,6 @@
         window.flipPiece = flipPiece;
         window.skipTurn = skipTurn;
         window.leaveGame = leaveGame;
-        window.backToLobby = backToLobby;
 
         console.log('Pixwar initialized');
     </script>
