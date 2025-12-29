@@ -444,6 +444,65 @@
             display: none !important;
         }
 
+        .room-item {
+            background: #f9f9f9;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .room-item:hover {
+            border-color: #2196F3;
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .room-info-left {
+            flex: 1;
+        }
+
+        .room-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .room-details {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .room-status {
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .room-status.waiting {
+            background: #FFC107;
+            color: #333;
+        }
+
+        .room-status.full {
+            background: #F44336;
+            color: white;
+        }
+
+        .no-rooms {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-size: 1.1em;
+        }
+
         /* Mobile Optimization */
         @media screen and (max-width: 768px) {
             body {
@@ -519,28 +578,86 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.6.0</span>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.7.0</span>
             <h1>Pixwar</h1>
         </div>
-        <p>Multiplayer Blokus Game</p>
 
-        <div id="lobbyMain">
-            <h2 style="margin: 20px 0; color: #333;">Select Game Mode</h2>
+        <!-- Main Menu -->
+        <div id="mainMenu">
+            <div class="lobby-buttons">
+                <button class="btn btn-primary" onclick="showNicknameInput()" style="font-size: 1.3em; padding: 20px 40px;">게임 시작</button>
+                <button class="btn btn-success" onclick="showHowToPlay()" style="font-size: 1.3em; padding: 20px 40px;">게임 방법</button>
+            </div>
+        </div>
+
+        <!-- Nickname Input -->
+        <div id="nicknameInput" class="hidden">
+            <h2 style="margin: 20px 0; color: #333;">닉네임 입력</h2>
+            <input type="text" id="playerNickname" class="join-input" maxlength="10" placeholder="닉네임" style="width: 250px; letter-spacing: normal;">
+            <br><br>
+            <div class="lobby-buttons">
+                <button class="btn btn-primary" onclick="setNickname()">확인</button>
+                <button class="btn btn-secondary" onclick="backToMainMenu()">뒤로</button>
+            </div>
+        </div>
+
+        <!-- How to Play -->
+        <div id="howToPlay" class="hidden">
+            <h2 style="color: #333;">게임 방법</h2>
+            <div style="text-align: left; padding: 20px; max-width: 600px; margin: 0 auto;">
+                <h3>🎯 목표</h3>
+                <p>블로커스 게임은 자신의 조각을 최대한 많이 배치하는 전략 게임입니다.</p>
+
+                <h3>📋 규칙</h3>
+                <ul style="line-height: 2;">
+                    <li>첫 번째 조각은 자신의 시작 코너(★)를 덮어야 합니다</li>
+                    <li>이후 조각들은 같은 색 조각의 꼭지점에만 닿아야 합니다</li>
+                    <li>같은 색 조각의 변끼리는 닿으면 안됩니다</li>
+                    <li>다른 색 조각과는 자유롭게 배치 가능합니다</li>
+                </ul>
+
+                <h3>🏆 점수</h3>
+                <ul style="line-height: 2;">
+                    <li>남은 조각의 사각형 개수만큼 -점수</li>
+                    <li>모든 조각 사용 시 +15점 보너스</li>
+                    <li>1칸 조각을 마지막에 놓으면 +5점 추가</li>
+                </ul>
+            </div>
+            <br>
+            <button class="btn btn-secondary" onclick="backToMainMenu()">뒤로</button>
+        </div>
+
+        <!-- Mode Selection -->
+        <div id="lobbyMain" class="hidden">
+            <h2 style="margin: 20px 0; color: #333;">게임 모드 선택</h2>
+            <p style="color: #666; margin-bottom: 20px;">환영합니다, <strong id="displayNickname"></strong>님!</p>
             <div class="lobby-buttons">
                 <button class="btn btn-primary" onclick="selectMode(1)">1 Player<br>(vs 3 AI)</button>
                 <button class="btn btn-success" onclick="selectMode(2)">2 Players<br>(Online)</button>
                 <button class="btn" style="background: #FF9800; color: white;" onclick="selectMode(3)">3 Players<br>(+ 1 AI)</button>
                 <button class="btn btn-danger" onclick="selectMode(4)">4 Players<br>(Online)</button>
             </div>
+            <br>
+            <button class="btn btn-secondary" onclick="backToMainMenu()">뒤로</button>
         </div>
 
-        <div id="modeSelected" class="hidden">
+        <!-- Room Action Selection -->
+        <div id="roomAction" class="hidden">
             <h2 style="margin: 20px 0; color: #333;"><span id="selectedModeText"></span></h2>
             <div class="lobby-buttons">
-                <button class="btn btn-primary" onclick="createRoom()">Create Room</button>
-                <button class="btn btn-success" onclick="showJoinInput()">Join Room</button>
-                <button class="btn btn-secondary" onclick="backToModeSelection()">Back</button>
+                <button class="btn btn-primary" onclick="createRoom()">방 만들기</button>
+                <button class="btn btn-success" onclick="showRoomList()">방 목록</button>
+                <button class="btn btn-secondary" onclick="backToModeSelection()">뒤로</button>
             </div>
+        </div>
+
+        <!-- Room List -->
+        <div id="roomListView" class="hidden">
+            <h2 style="margin: 20px 0; color: #333;">방 목록</h2>
+            <div id="roomListContainer" style="max-height: 400px; overflow-y: auto; margin: 20px 0;">
+                <!-- Room list will be inserted here -->
+            </div>
+            <button class="btn btn-secondary" onclick="backToRoomAction()">뒤로</button>
         </div>
 
         <div id="createRoomView" class="hidden">
@@ -568,7 +685,7 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
-            <span class="version-badge">v1.6.0</span>
+            <span class="version-badge">v1.7.0</span>
             <h1>Pixwar</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
@@ -695,6 +812,7 @@
             roomCode: null,
             playerId: null, // 0-3
             playerColor: null, // 'blue', 'red', 'yellow', or 'green'
+            playerNickname: null,
             isHost: false,
             board: Array(14).fill(null).map(() => Array(14).fill(null)),
             players: [
@@ -707,10 +825,100 @@
             selectedPieceIndex: null,
             gameStarted: false,
             passCount: 0,
-            dbListener: null
+            dbListener: null,
+            roomListListener: null
         };
 
         let lastPreviewCells = [];
+
+        // ============================================================================
+        // NICKNAME & NAVIGATION
+        // ============================================================================
+
+        // Check for saved nickname on load
+        window.addEventListener('load', () => {
+            const savedNickname = localStorage.getItem('pixwarNickname');
+            if (savedNickname) {
+                game.playerNickname = savedNickname;
+            }
+        });
+
+        function showNicknameInput() {
+            const savedNickname = localStorage.getItem('pixwarNickname');
+            if (savedNickname) {
+                game.playerNickname = savedNickname;
+                document.getElementById('displayNickname').textContent = savedNickname;
+                document.getElementById('mainMenu').classList.add('hidden');
+                document.getElementById('lobbyMain').classList.remove('hidden');
+            } else {
+                document.getElementById('mainMenu').classList.add('hidden');
+                document.getElementById('nicknameInput').classList.remove('hidden');
+                document.getElementById('playerNickname').focus();
+            }
+        }
+
+        function setNickname() {
+            const nickname = document.getElementById('playerNickname').value.trim();
+            if (!nickname || nickname.length < 2) {
+                alert('닉네임은 최소 2글자 이상이어야 합니다.');
+                return;
+            }
+
+            game.playerNickname = nickname;
+            localStorage.setItem('pixwarNickname', nickname);
+            document.getElementById('displayNickname').textContent = nickname;
+
+            document.getElementById('nicknameInput').classList.add('hidden');
+            document.getElementById('lobbyMain').classList.remove('hidden');
+        }
+
+        function showHowToPlay() {
+            document.getElementById('mainMenu').classList.add('hidden');
+            document.getElementById('howToPlay').classList.remove('hidden');
+        }
+
+        function backToMainMenu() {
+            document.getElementById('nicknameInput').classList.add('hidden');
+            document.getElementById('howToPlay').classList.add('hidden');
+            document.getElementById('lobbyMain').classList.add('hidden');
+            document.getElementById('mainMenu').classList.remove('hidden');
+        }
+
+        function backToModeSelection() {
+            document.getElementById('roomAction').classList.add('hidden');
+            document.getElementById('roomListView').classList.add('hidden');
+            document.getElementById('lobbyMain').classList.remove('hidden');
+            game.mode = null;
+        }
+
+        function backToRoomAction() {
+            document.getElementById('roomListView').classList.add('hidden');
+            document.getElementById('roomAction').classList.remove('hidden');
+        }
+
+        // ============================================================================
+        // GAME MODE SELECTION (UPDATED)
+        // ============================================================================
+
+        function selectMode(mode) {
+            game.mode = mode;
+            const modeText = {
+                1: '1 Player (vs 3 AI)',
+                2: '2 Players (Online)',
+                3: '3 Players (+ 1 AI)',
+                4: '4 Players (Online)'
+            };
+
+            document.getElementById('selectedModeText').textContent = modeText[mode];
+            document.getElementById('lobbyMain').classList.add('hidden');
+
+            // For 1-player mode, start immediately without creating/joining room
+            if (mode === 1) {
+                startSinglePlayerGame();
+            } else {
+                document.getElementById('roomAction').classList.remove('hidden');
+            }
+        }
 
         // ============================================================================
         // FIREBASE ROOM MANAGEMENT
@@ -721,13 +929,26 @@
             return Math.floor(100000 + Math.random() * 900000).toString();
         }
 
+        // Get required player count for mode
+        function getRequiredPlayers(mode) {
+            if (mode === 1) return 1; // 1 human + 3 AI
+            if (mode === 2) return 2;
+            if (mode === 3) return 3; // 3 human + 1 AI
+            if (mode === 4) return 4;
+            return 2;
+        }
+
         // Create a new room
         async function createRoom() {
+            if (!game.playerNickname) {
+                alert('닉네임을 먼저 설정해주세요.');
+                return;
+            }
+
             const roomCode = generateRoomCode();
             const roomRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}`);
 
-            // Initialize pieces for both players (create separate copies)
-            // Store shapeIndex instead of shape array to avoid Firebase serialization issues
+            // Initialize pieces for all players
             const createInitialPieces = () => PIECE_SHAPES.map((shape, index) => ({
                 shapeIndex: index,
                 used: false,
@@ -735,18 +956,33 @@
                 flipped: false
             }));
 
+            const requiredPlayers = getRequiredPlayers(game.mode);
+            const colors = ['blue', 'red', 'yellow', 'green'];
+
+            // Initialize players object
+            const players = {};
+            const pieces = {};
+
+            for (let i = 0; i < 4; i++) {
+                const isAI = (game.mode === 3 && i === 3); // Last player is AI in 3-player mode
+                players[i] = {
+                    connected: i === 0,
+                    color: colors[i],
+                    name: i === 0 ? game.playerNickname : (isAI ? 'AI' : `Player ${i + 1}`),
+                    isAI: isAI
+                };
+                pieces[i] = createInitialPieces();
+            }
+
             const roomData = {
-                host: true,
-                players: {
-                    0: { connected: true, color: 'blue', name: 'Player 1' },
-                    1: { connected: false, color: 'red', name: 'Player 2' }
-                },
+                mode: game.mode,
+                requiredPlayers: requiredPlayers,
+                currentPlayers: 1,
+                host: game.playerNickname,
+                players: players,
                 gameState: {
                     board: Array(14).fill(null).map(() => Array(14).fill(null)),
-                    pieces: {
-                        0: createInitialPieces(),
-                        1: createInitialPieces()
-                    },
+                    pieces: pieces,
                     currentPlayerIndex: 0,
                     passCount: 0,
                     gameStarted: false,
@@ -760,7 +996,7 @@
 
                 // Set up disconnect handler - remove room if host disconnects
                 const connectedRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/players/0/connected`);
-                window.firebaseDB.onDisconnect(connectedRef).remove();
+                window.firebaseDB.onDisconnect(connectedRef).set(false);
                 window.firebaseDB.onDisconnect(roomRef).remove();
 
                 game.roomCode = roomCode;
@@ -770,44 +1006,121 @@
 
                 // Show room code to user
                 document.getElementById('displayRoomCode').textContent = roomCode;
-                document.getElementById('lobbyMain').classList.add('hidden');
+                document.getElementById('roomAction').classList.add('hidden');
                 document.getElementById('createRoomView').classList.remove('hidden');
 
-                // Listen for opponent joining
-                listenForOpponent(roomCode);
+                // Listen for players joining
+                listenForPlayers(roomCode);
 
-                console.log(`Room created: ${roomCode}`);
+                console.log(`Room created: ${roomCode}, Mode: ${game.mode}, Required: ${requiredPlayers}`);
             } catch (error) {
                 console.error('Error creating room:', error);
                 alert('Failed to create room. Please check Firebase configuration.');
             }
         }
 
-        // Listen for opponent joining
-        function listenForOpponent(roomCode) {
-            const player1Ref = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/players/1/connected`);
+        // Listen for players joining (updated for multi-player)
+        function listenForPlayers(roomCode) {
+            const roomRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}`);
 
-            window.firebaseDB.onValue(player1Ref, (snapshot) => {
-                if (snapshot.val() === true) {
-                    console.log('Opponent joined!');
+            window.firebaseDB.onValue(roomRef, (snapshot) => {
+                const roomData = snapshot.val();
+                if (!roomData) return;
+
+                const connectedPlayers = Object.values(roomData.players).filter(p => p.connected && !p.isAI).length;
+                console.log(`Players: ${connectedPlayers}/${roomData.requiredPlayers}`);
+
+                // Update room data
+                const currentPlayersRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/currentPlayers`);
+                window.firebaseDB.set(currentPlayersRef, connectedPlayers);
+
+                // Start game when all required players joined
+                if (connectedPlayers >= roomData.requiredPlayers && !roomData.gameState.gameStarted) {
+                    console.log('All players joined! Starting game...');
                     startGame();
                 }
             });
         }
 
-        // Show join room input
-        function showJoinInput() {
-            document.getElementById('lobbyMain').classList.add('hidden');
-            document.getElementById('joinRoomView').classList.remove('hidden');
-            document.getElementById('roomCodeInput').focus();
+        // Show room list
+        async function showRoomList() {
+            document.getElementById('roomAction').classList.add('hidden');
+            document.getElementById('roomListView').classList.remove('hidden');
+
+            // Listen to all rooms
+            const roomsRef = window.firebaseDB.ref(window.firebaseDB.database, 'rooms');
+
+            // Remove old listener if exists
+            if (game.roomListListener) {
+                game.roomListListener();
+            }
+
+            game.roomListListener = window.firebaseDB.onValue(roomsRef, (snapshot) => {
+                const rooms = snapshot.val();
+                const roomListContainer = document.getElementById('roomListContainer');
+                roomListContainer.innerHTML = '';
+
+                if (!rooms) {
+                    roomListContainer.innerHTML = '<div class="no-rooms">사용 가능한 방이 없습니다.<br>방을 직접 만들어보세요!</div>';
+                    return;
+                }
+
+                const roomList = Object.entries(rooms)
+                    .filter(([code, data]) => {
+                        // Filter by mode and not full and not started
+                        return data.mode === game.mode &&
+                               !data.gameState.gameStarted &&
+                               data.currentPlayers < data.requiredPlayers;
+                    })
+                    .sort((a, b) => b[1].createdAt - a[1].createdAt); // Sort by newest first
+
+                if (roomList.length === 0) {
+                    roomListContainer.innerHTML = '<div class="no-rooms">이 모드에 참가 가능한 방이 없습니다.</div>';
+                    return;
+                }
+
+                roomList.forEach(([roomCode, roomData]) => {
+                    const roomItem = document.createElement('div');
+                    roomItem.className = 'room-item';
+
+                    const isFull = roomData.currentPlayers >= roomData.requiredPlayers;
+                    const statusClass = isFull ? 'full' : 'waiting';
+                    const statusText = isFull ? '가득 참' : `대기 중 (${roomData.currentPlayers}/${roomData.requiredPlayers})`;
+
+                    roomItem.innerHTML = `
+                        <div class="room-info-left">
+                            <div class="room-name">${roomData.host}님의 방</div>
+                            <div class="room-details">방 코드: ${roomCode}</div>
+                        </div>
+                        <div>
+                            <span class="room-status ${statusClass}">${statusText}</span>
+                            ${!isFull ? `<button class="btn btn-success" onclick="joinRoomByCode('${roomCode}')">참가</button>` : ''}
+                        </div>
+                    `;
+
+                    roomListContainer.appendChild(roomItem);
+                });
+            });
+        }
+
+        // Join room by code (from room list)
+        async function joinRoomByCode(roomCode) {
+            await joinRoom(roomCode);
         }
 
         // Join an existing room
-        async function joinRoom() {
-            const roomCode = document.getElementById('roomCodeInput').value.trim();
+        async function joinRoom(roomCode = null) {
+            if (!roomCode) {
+                roomCode = document.getElementById('roomCodeInput')?.value.trim();
+            }
 
-            if (roomCode.length !== 6) {
-                alert('Please enter a valid 6-digit room code');
+            if (!game.playerNickname) {
+                alert('닉네임을 먼저 설정해주세요.');
+                return;
+            }
+
+            if (!roomCode || roomCode.length !== 6) {
+                alert('올바른 6자리 방 코드를 입력해주세요.');
                 return;
             }
 
@@ -817,36 +1130,59 @@
                 const snapshot = await window.firebaseDB.get(roomRef);
 
                 if (!snapshot.exists()) {
-                    alert('Room not found. Please check the code.');
+                    alert('방을 찾을 수 없습니다. 코드를 확인해주세요.');
                     return;
                 }
 
                 const roomData = snapshot.val();
 
-                if (roomData.players[1].connected) {
-                    alert('Room is full.');
+                // Check if room mode matches
+                if (roomData.mode !== game.mode) {
+                    alert('선택한 모드와 방의 모드가 다릅니다.');
                     return;
                 }
 
-                // Join as player 1 (red)
-                const player1Ref = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/players/1`);
-                await window.firebaseDB.update(player1Ref, { connected: true });
+                // Find available player slot
+                let availableSlot = -1;
+                const colors = ['blue', 'red', 'yellow', 'green'];
+
+                for (let i = 0; i < 4; i++) {
+                    if (!roomData.players[i].connected && !roomData.players[i].isAI) {
+                        availableSlot = i;
+                        break;
+                    }
+                }
+
+                if (availableSlot === -1) {
+                    alert('방이 가득 찼습니다.');
+                    return;
+                }
+
+                // Join as available player
+                const playerRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/players/${availableSlot}`);
+                await window.firebaseDB.update(playerRef, {
+                    connected: true,
+                    name: game.playerNickname
+                });
 
                 // Set up disconnect handler
-                const connectedRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/players/1/connected`);
+                const connectedRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/players/${availableSlot}/connected`);
                 window.firebaseDB.onDisconnect(connectedRef).set(false);
 
                 game.roomCode = roomCode;
-                game.playerId = 1;
-                game.playerColor = 'red';
+                game.playerId = availableSlot;
+                game.playerColor = colors[availableSlot];
                 game.isHost = false;
+                game.mode = roomData.mode;
 
-                console.log(`Joined room: ${roomCode}`);
+                console.log(`Joined room: ${roomCode} as Player ${availableSlot} (${game.playerColor})`);
 
-                startGame();
+                // Hide room list, listen for game start
+                document.getElementById('roomListView').classList.add('hidden');
+                listenForPlayers(roomCode);
             } catch (error) {
                 console.error('Error joining room:', error);
-                alert('Failed to join room. Please try again.');
+                alert('방 참가에 실패했습니다. 다시 시도해주세요.');
             }
         }
 
@@ -1977,11 +2313,17 @@
         }
 
         // Make functions globally accessible
+        window.showNicknameInput = showNicknameInput;
+        window.setNickname = setNickname;
+        window.showHowToPlay = showHowToPlay;
+        window.backToMainMenu = backToMainMenu;
         window.selectMode = selectMode;
         window.backToModeSelection = backToModeSelection;
+        window.backToRoomAction = backToRoomAction;
         window.createRoom = createRoom;
-        window.showJoinInput = showJoinInput;
+        window.showRoomList = showRoomList;
         window.joinRoom = joinRoom;
+        window.joinRoomByCode = joinRoomByCode;
         window.cancelRoom = cancelRoom;
         window.cancelJoin = cancelJoin;
         window.selectPiece = selectPiece;
