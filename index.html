@@ -636,7 +636,7 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.8.3</span>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.9.0</span>
             <h1>Pixwar</h1>
         </div>
 
@@ -744,7 +744,7 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
-            <span class="version-badge">v1.8.3</span>
+            <span class="version-badge">v1.9.0</span>
             <h1>Pixwar</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
@@ -756,6 +756,10 @@
         </div>
 
         <div class="message" id="messageBox">Game starting...</div>
+
+        <div id="turnTimerDisplay" style="text-align: center; font-size: 1.5em; font-weight: bold; margin: 10px 0; display: none;">
+            <span id="timerText">Time: </span><span id="timerValue">120</span>s
+        </div>
 
         <div class="game-main">
             <div class="board-container">
@@ -885,7 +889,10 @@
             gameStarted: false,
             passCount: 0,
             dbListener: null,
-            roomListListener: null
+            roomListListener: null,
+            turnTimer: null,
+            turnTimeRemaining: 120,
+            turnTimerInterval: null
         };
 
         let lastPreviewCells = [];
@@ -1216,11 +1223,68 @@
             // Start game will be triggered by listener
         }
 
+        // Handle disconnected players during game
+        async function handleDisconnectedPlayers(roomCode, roomData) {
+            const now = Date.now();
+            const RECONNECT_GRACE_PERIOD = 30000; // 30 seconds
+
+            for (let i = 0; i < 4; i++) {
+                const player = roomData.players[i];
+
+                // Skip if player was never connected or is already AI
+                if (!player || player.isAI) continue;
+
+                // Player just disconnected - mark the time
+                if (!player.connected && !player.disconnectedAt) {
+                    const playerRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/players/${i}/disconnectedAt`);
+                    await window.firebaseDB.set(playerRef, now);
+                    console.log(`Player ${i} (${player.name}) disconnected. Grace period started.`);
+                    showMessage(`⚠️ ${player.name}님의 연결이 끊어졌습니다. 30초 안에 재접속하지 않으면 AI로 대체됩니다.`);
+                }
+
+                // Player reconnected - clear disconnection timer
+                if (player.connected && player.disconnectedAt) {
+                    const playerRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/players/${i}/disconnectedAt`);
+                    await window.firebaseDB.set(playerRef, null);
+                    console.log(`Player ${i} (${player.name}) reconnected!`);
+                    showMessage(`✅ ${player.name}님이 재접속했습니다!`);
+                }
+
+                // Player still disconnected after grace period - replace with AI
+                if (!player.connected && player.disconnectedAt && (now - player.disconnectedAt) > RECONNECT_GRACE_PERIOD) {
+                    console.log(`Player ${i} (${player.name}) did not reconnect. Replacing with AI.`);
+
+                    const playerUpdates = {
+                        [`${i}/isAI`]: true,
+                        [`${i}/name`]: `AI (${player.name})`,
+                        [`${i}/connected`]: true,
+                        [`${i}/disconnectedAt`]: null
+                    };
+
+                    const playersRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/players`);
+                    await window.firebaseDB.update(playersRef, playerUpdates);
+
+                    // Update local game state
+                    game.players[i].isAI = true;
+                    game.players[i].name = `AI (${player.name})`;
+
+                    showMessage(`🤖 ${player.name}님이 재접속하지 않아 AI로 대체되었습니다.`);
+
+                    // If it's AI's turn, trigger AI move
+                    if (game.currentPlayerIndex === i) {
+                        setTimeout(() => {
+                            aiMove();
+                        }, 1000);
+                    }
+                }
+            }
+        }
+
         // Listen for players joining (updated for multi-player)
         function listenForPlayers(roomCode) {
             const roomRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}`);
 
-            window.firebaseDB.onValue(roomRef, (snapshot) => {
+            window.firebaseDB.onValue(roomRef, async (snapshot) => {
                 const roomData = snapshot.val();
                 if (!roomData) return;
 
@@ -1233,6 +1297,11 @@
                 // Update room data
                 const currentPlayersRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}/currentPlayers`);
                 window.firebaseDB.set(currentPlayersRef, connectedPlayers);
+
+                // Handle disconnected players during game
+                if (roomData.gameState.gameStarted && game.gameStarted) {
+                    await handleDisconnectedPlayers(roomCode, roomData);
+                }
 
                 // Start game when host triggers it
                 if (roomData.gameState.gameStarted && !game.gameStarted) {
@@ -1807,6 +1876,8 @@
             if (currentPlayer.isAI) {
                 messageBox.textContent = `AI (${currentPlayer.color}) is thinking...`;
                 messageBox.className = 'message opponent-turn';
+                // Stop timer for AI turns
+                stopTurnTimer();
                 // Trigger AI move after a short delay
                 setTimeout(() => {
                     aiMove();
@@ -1814,9 +1885,13 @@
             } else if (isMyTurn) {
                 messageBox.textContent = 'Your turn! Select a piece and place it on the board.';
                 messageBox.className = 'message your-turn';
+                // Start turn timer for your turn
+                startTurnTimer();
             } else {
                 messageBox.textContent = `${currentPlayer.name}'s turn. Please wait...`;
                 messageBox.className = 'message opponent-turn';
+                // Start turn timer for opponent's turn (to show them the timer)
+                startTurnTimer();
             }
         }
 
@@ -1825,6 +1900,100 @@
             if (messageBox) {
                 messageBox.textContent = message;
                 console.log('Message:', message);
+            }
+        }
+
+        // ============================================================================
+        // TURN TIMER SYSTEM
+        // ============================================================================
+
+        function startTurnTimer() {
+            // Stop any existing timer
+            stopTurnTimer();
+
+            const currentPlayer = game.players[game.currentPlayerIndex];
+
+            // Only start timer for human players
+            if (currentPlayer.isAI) {
+                document.getElementById('turnTimerDisplay').style.display = 'none';
+                return;
+            }
+
+            // Show timer
+            document.getElementById('turnTimerDisplay').style.display = 'block';
+
+            // Reset timer
+            game.turnTimeRemaining = 120;
+            updateTimerDisplay();
+
+            // Start countdown
+            game.turnTimerInterval = setInterval(() => {
+                game.turnTimeRemaining--;
+                updateTimerDisplay();
+
+                // Time running out warning (last 30 seconds)
+                if (game.turnTimeRemaining === 30) {
+                    showMessage('⏰ 30초 남았습니다!');
+                    document.getElementById('turnTimerDisplay').style.color = 'orange';
+                }
+
+                // Last 10 seconds warning
+                if (game.turnTimeRemaining === 10) {
+                    showMessage('⚠️ 10초 남았습니다!');
+                    document.getElementById('turnTimerDisplay').style.color = 'red';
+                }
+
+                // Time's up!
+                if (game.turnTimeRemaining <= 0) {
+                    stopTurnTimer();
+                    handleTurnTimeout();
+                }
+            }, 1000);
+        }
+
+        function stopTurnTimer() {
+            if (game.turnTimerInterval) {
+                clearInterval(game.turnTimerInterval);
+                game.turnTimerInterval = null;
+            }
+            document.getElementById('turnTimerDisplay').style.display = 'none';
+        }
+
+        function updateTimerDisplay() {
+            const timerValue = document.getElementById('timerValue');
+            const timerDisplay = document.getElementById('turnTimerDisplay');
+
+            timerValue.textContent = game.turnTimeRemaining;
+
+            // Color coding
+            if (game.turnTimeRemaining > 30) {
+                timerDisplay.style.color = 'green';
+            } else if (game.turnTimeRemaining > 10) {
+                timerDisplay.style.color = 'orange';
+            } else {
+                timerDisplay.style.color = 'red';
+            }
+        }
+
+        async function handleTurnTimeout() {
+            showMessage('⏱️ 시간 초과! 턴을 넘깁니다.');
+
+            // Only auto-pass if it's the current player's turn
+            if (game.currentPlayerIndex === game.playerId) {
+                // Auto-pass turn
+                game.passCount++;
+
+                const numPlayers = game.players.filter(p => p.pieces && p.pieces.length > 0).length;
+                game.currentPlayerIndex = (game.currentPlayerIndex + 1) % numPlayers;
+
+                try {
+                    await syncGameState();
+                } catch (error) {
+                    console.error('Error syncing after timeout:', error);
+                    // Rollback on error
+                    game.passCount--;
+                    game.currentPlayerIndex = (game.currentPlayerIndex - 1 + numPlayers) % numPlayers;
+                }
             }
         }
 
@@ -2215,6 +2384,9 @@
         // ============================================================================
 
         function endGame() {
+            // Stop turn timer when game ends
+            stopTurnTimer();
+
             const scores = game.players.map((player, index) => {
                 const remainingSquares = player.pieces.reduce((sum, piece) => {
                     if (!piece.used) {
