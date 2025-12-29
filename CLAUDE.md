@@ -15,7 +15,7 @@ git push
 ### 2. Version 업데이트
 파일 수정 시 `index.html`의 version을 자동으로 증가:
 - **위치**: index.html 639번, 747번 라인
-- **현재 버전**: v1.8.0
+- **현재 버전**: v1.8.1
 - **형식**: `v{major}.{minor}.{patch}`
 - **규칙**:
   - 작은 수정/버그 픽스: patch 증가 (v1.5.0 → v1.5.1)
@@ -25,10 +25,10 @@ git push
 ### 3. 업데이트할 version 라인
 ```html
 <!-- 라인 639 -->
-<span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.8.0</span>
+<span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.8.1</span>
 
 <!-- 라인 747 -->
-<span class="version-badge">v1.8.0</span>
+<span class="version-badge">v1.8.1</span>
 ```
 
 ## 워크플로우 예시
