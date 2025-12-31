@@ -3,20 +3,7 @@
     ".read": true,
     ".write": true,
     "rooms": {
-      ".indexOn": ["createdAt"],
-      "$roomId": {
-        ".read": true,
-        ".write": true,
-        ".validate": "newData.hasChildren(['maxPlayers', 'currentPlayers', 'host', 'hostId', 'players', 'gameState', 'createdAt'])",
-        "players": {
-          "$playerId": {
-            ".validate": "newData.hasChildren(['connected', 'color']) && (newData.child('name').exists() || newData.child('name').val() === null)"
-          }
-        },
-        "gameState": {
-          ".validate": "newData.hasChildren(['board', 'pieces', 'currentPlayerIndex', 'passCount', 'gameStarted', 'gameOver'])"
-        }
-      }
+      ".indexOn": ["createdAt"]
     }
   }
 }
