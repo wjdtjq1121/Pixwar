@@ -631,7 +631,7 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v2.0.0</span>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v2.0.1</span>
             <h1>Pixwar</h1>
         </div>
 
@@ -739,7 +739,7 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
-            <span class="version-badge">v2.0.0</span>
+            <span class="version-badge">v2.0.1</span>
             <h1>Pixwar</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
@@ -1027,7 +1027,8 @@
                     connected: i === 0,
                     color: colors[i],
                     name: i === 0 ? game.playerNickname : null,
-                    ready: i === 0 // Host is auto-ready
+                    ready: i === 0, // Host is auto-ready
+                    isAI: false // All initial players are human
                 };
                 pieces[i] = createInitialPieces();
             }
@@ -1449,7 +1450,8 @@
                 await window.firebaseDB.update(playerRef, {
                     connected: true,
                     name: game.playerNickname,
-                    ready: false
+                    ready: false,
+                    isAI: false // Joining player is always human
                 });
 
                 // Set up disconnect handler
@@ -1546,12 +1548,13 @@
                 const players = snapshot.val();
                 if (!players) return;
 
-                // Update isAI flags from Firebase
+                // Update isAI flags from Firebase - be explicit about values
                 for (let i = 0; i < 4; i++) {
                     if (players[i]) {
-                        game.players[i].isAI = players[i].isAI || false;
+                        // Only set isAI if it's explicitly true in Firebase
+                        game.players[i].isAI = players[i].isAI === true;
                         game.players[i].name = players[i].name || game.players[i].name;
-                        console.log(`Player ${i}: isAI = ${game.players[i].isAI}, name = ${game.players[i].name}`);
+                        console.log(`🎮 Player ${i}: isAI = ${game.players[i].isAI}, name = ${game.players[i].name}`);
                     }
                 }
             });
@@ -1903,7 +1906,10 @@
             const currentPlayer = game.players[game.currentPlayerIndex];
             const isMyTurn = game.currentPlayerIndex === game.playerId;
 
+            console.log(`🎯 updateMessage: Player ${game.currentPlayerIndex}, isAI=${currentPlayer.isAI}, name=${currentPlayer.name}`);
+
             if (currentPlayer.isAI) {
+                console.log(`🤖 AI turn detected for player ${game.currentPlayerIndex}`);
                 messageBox.textContent = `AI (${currentPlayer.color}) is thinking...`;
                 messageBox.className = 'message opponent-turn';
                 // Stop timer for AI turns
