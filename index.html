@@ -631,26 +631,45 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v2.0.1</span>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v3.0.0</span>
             <h1>Pixwar</h1>
         </div>
 
         <!-- Main Menu -->
         <div id="mainMenu">
             <div class="lobby-buttons">
-                <button class="btn btn-primary" onclick="showNicknameInput()" style="font-size: 1.3em; padding: 20px 40px;">게임 시작</button>
+                <button class="btn btn-primary" onclick="showLoginScreen()" style="font-size: 1.3em; padding: 20px 40px;">게임 시작</button>
                 <button class="btn btn-success" onclick="showHowToPlay()" style="font-size: 1.3em; padding: 20px 40px;">게임 방법</button>
             </div>
         </div>
 
-        <!-- Nickname Input -->
-        <div id="nicknameInput" class="hidden">
-            <h2 style="margin: 20px 0; color: #333;">닉네임 입력</h2>
-            <input type="text" id="playerNickname" class="join-input" maxlength="10" placeholder="닉네임" style="width: 250px; letter-spacing: normal;">
+        <!-- Login Screen -->
+        <div id="loginScreen" class="hidden">
+            <h2 style="margin: 20px 0; color: #333;">로그인</h2>
+            <input type="text" id="loginUserId" class="join-input" maxlength="20" placeholder="아이디" style="width: 250px; letter-spacing: normal; margin: 10px 0;">
+            <br>
+            <input type="password" id="loginPassword" class="join-input" maxlength="20" placeholder="비밀번호" style="width: 250px; letter-spacing: normal; margin: 10px 0;">
             <br><br>
             <div class="lobby-buttons">
-                <button class="btn btn-primary" onclick="setNickname()">확인</button>
+                <button class="btn btn-primary" onclick="login()">로그인</button>
                 <button class="btn btn-secondary" onclick="backToMainMenu()">뒤로</button>
+            </div>
+            <br>
+            <button class="btn btn-success" onclick="showSignupScreen()" style="margin-top: 10px;">가입하기</button>
+        </div>
+
+        <!-- Signup Screen -->
+        <div id="signupScreen" class="hidden">
+            <h2 style="margin: 20px 0; color: #333;">회원가입</h2>
+            <input type="text" id="signupUserId" class="join-input" maxlength="20" placeholder="아이디 (4-20자)" style="width: 250px; letter-spacing: normal; margin: 10px 0;">
+            <br>
+            <input type="password" id="signupPassword" class="join-input" maxlength="20" placeholder="비밀번호 (6-20자)" style="width: 250px; letter-spacing: normal; margin: 10px 0;">
+            <br>
+            <input type="text" id="signupNickname" class="join-input" maxlength="10" placeholder="닉네임 (2-10자)" style="width: 250px; letter-spacing: normal; margin: 10px 0;">
+            <br><br>
+            <div class="lobby-buttons">
+                <button class="btn btn-primary" onclick="signup()">가입하기</button>
+                <button class="btn btn-secondary" onclick="showLoginScreen()">뒤로</button>
             </div>
         </div>
 
@@ -685,14 +704,34 @@
             <h2 style="margin: 20px 0; color: #333;">게임 로비</h2>
             <p style="color: #666; margin-bottom: 20px;">
                 환영합니다, <strong id="displayNickname"></strong>님!
-                <button class="btn btn-secondary" onclick="logout()" style="padding: 5px 15px; font-size: 0.9em; margin-left: 10px;">닉네임 변경</button>
+                <button class="btn btn-secondary" onclick="logout()" style="padding: 5px 15px; font-size: 0.9em; margin-left: 10px;">로그아웃</button>
             </p>
             <div class="lobby-buttons">
-                <button class="btn btn-primary" onclick="createRoom()" style="font-size: 1.3em; padding: 20px 40px;">방 만들기</button>
+                <button class="btn btn-primary" onclick="showCreateRoomSettings()" style="font-size: 1.3em; padding: 20px 40px;">방 만들기</button>
                 <button class="btn btn-success" onclick="showRoomList()" style="font-size: 1.3em; padding: 20px 40px;">방 목록</button>
             </div>
             <br>
             <button class="btn btn-secondary" onclick="backToMainMenu()">뒤로</button>
+        </div>
+
+        <!-- Create Room Settings -->
+        <div id="createRoomSettings" class="hidden">
+            <h2 style="margin: 20px 0; color: #333;">방 설정</h2>
+            <div style="padding: 20px; text-align: left; max-width: 400px; margin: 0 auto;">
+                <label for="turnTimeLimit" style="display: block; margin-bottom: 10px; color: #333; font-weight: bold;">
+                    턴 제한 시간: <span id="timeLimitDisplay">120</span>초
+                </label>
+                <input type="range" id="turnTimeLimit" min="5" max="300" value="120"
+                       oninput="document.getElementById('timeLimitDisplay').textContent = this.value"
+                       style="width: 100%; margin-bottom: 20px;">
+                <p style="color: #666; font-size: 0.9em;">각 플레이어의 턴 제한 시간입니다. (5~300초)</p>
+                <p style="color: #666; font-size: 0.9em;">⚠️ 시간 초과 3회 시 자동으로 AI로 대체됩니다.</p>
+            </div>
+            <br>
+            <div class="lobby-buttons">
+                <button class="btn btn-primary" onclick="createRoomWithSettings()" style="font-size: 1.3em; padding: 20px 40px;">방 만들기</button>
+                <button class="btn btn-secondary" onclick="backToLobby()">뒤로</button>
+            </div>
         </div>
 
         <!-- Room List -->
@@ -739,7 +778,7 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
-            <span class="version-badge">v2.0.1</span>
+            <span class="version-badge">v3.0.0</span>
             <h1>Pixwar</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
@@ -870,13 +909,15 @@
             roomCode: null,
             playerId: null, // 0-3
             playerColor: null, // 'blue', 'red', 'yellow', or 'green'
+            userId: null, // User ID for authentication
             playerNickname: null,
+            turnTimeLimit: 120, // Turn time limit for current room (5-300 seconds)
             board: Array(14).fill(null).map(() => Array(14).fill(null)),
             players: [
-                { name: 'Player 1', color: 'blue', pieces: [], cornerX: 0, cornerY: 0, isAI: false },
-                { name: 'Player 2', color: 'red', pieces: [], cornerX: 13, cornerY: 0, isAI: false },
-                { name: 'Player 3', color: 'yellow', pieces: [], cornerX: 13, cornerY: 13, isAI: false },
-                { name: 'Player 4', color: 'green', pieces: [], cornerX: 0, cornerY: 13, isAI: false }
+                { name: 'Player 1', color: 'blue', pieces: [], cornerX: 0, cornerY: 0, isAI: false, skipCount: 0 },
+                { name: 'Player 2', color: 'red', pieces: [], cornerX: 13, cornerY: 0, isAI: false, skipCount: 0 },
+                { name: 'Player 3', color: 'yellow', pieces: [], cornerX: 13, cornerY: 13, isAI: false, skipCount: 0 },
+                { name: 'Player 4', color: 'green', pieces: [], cornerX: 0, cornerY: 13, isAI: false, skipCount: 0 }
             ],
             currentPlayerIndex: 0,
             selectedPieceIndex: null,
@@ -895,23 +936,161 @@
         // NICKNAME & NAVIGATION
         // ============================================================================
 
-        // Check for saved nickname on load
+        // Check for saved user on load
         window.addEventListener('load', () => {
+            const savedUserId = localStorage.getItem('pixwarUserId');
             const savedNickname = localStorage.getItem('pixwarNickname');
-            if (savedNickname) {
+            if (savedUserId && savedNickname) {
+                game.userId = savedUserId;
                 game.playerNickname = savedNickname;
+                console.log(`Auto-login: ${savedNickname} (${savedUserId})`);
             }
         });
 
         // Utility function to hide all screens
         function hideAllScreens() {
             document.getElementById('mainMenu').classList.add('hidden');
-            document.getElementById('nicknameInput').classList.add('hidden');
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('signupScreen').classList.add('hidden');
             document.getElementById('howToPlay').classList.add('hidden');
             document.getElementById('lobbyMain').classList.add('hidden');
+            document.getElementById('createRoomSettings').classList.add('hidden');
             document.getElementById('roomListView').classList.add('hidden');
             document.getElementById('createRoomView').classList.add('hidden');
             document.getElementById('joinRoomView').classList.add('hidden');
+        }
+
+        // ============================================================================
+        // AUTHENTICATION FUNCTIONS
+        // ============================================================================
+
+        function showLoginScreen() {
+            hideAllScreens();
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('loginUserId').focus();
+        }
+
+        function showSignupScreen() {
+            hideAllScreens();
+            document.getElementById('signupScreen').classList.remove('hidden');
+            document.getElementById('signupUserId').focus();
+        }
+
+        async function signup() {
+            const userId = document.getElementById('signupUserId').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const nickname = document.getElementById('signupNickname').value.trim();
+
+            // Validation
+            if (userId.length < 4 || userId.length > 20) {
+                alert('아이디는 4-20자 사이여야 합니다.');
+                return;
+            }
+            if (password.length < 6 || password.length > 20) {
+                alert('비밀번호는 6-20자 사이여야 합니다.');
+                return;
+            }
+            if (nickname.length < 2 || nickname.length > 10) {
+                alert('닉네임은 2-10자 사이여야 합니다.');
+                return;
+            }
+
+            try {
+                // Check if userId already exists
+                const userIdRef = window.firebaseDB.ref(window.firebaseDB.database, `users/${userId}`);
+                const userIdSnapshot = await window.firebaseDB.get(userIdRef);
+                if (userIdSnapshot.exists()) {
+                    alert('이미 존재하는 아이디입니다.');
+                    return;
+                }
+
+                // Check if nickname already exists
+                const usersRef = window.firebaseDB.ref(window.firebaseDB.database, 'users');
+                const usersSnapshot = await window.firebaseDB.get(usersRef);
+                if (usersSnapshot.exists()) {
+                    const users = usersSnapshot.val();
+                    for (const uid in users) {
+                        if (users[uid].nickname === nickname) {
+                            alert('이미 존재하는 닉네임입니다.');
+                            return;
+                        }
+                    }
+                }
+
+                // Create new user
+                await window.firebaseDB.set(userIdRef, {
+                    password: password, // In production, hash this!
+                    nickname: nickname,
+                    createdAt: Date.now()
+                });
+
+                alert('회원가입이 완료되었습니다!');
+                showLoginScreen();
+                document.getElementById('loginUserId').value = userId;
+            } catch (error) {
+                console.error('Signup error:', error);
+                alert('회원가입에 실패했습니다. 다시 시도해주세요.');
+            }
+        }
+
+        async function login() {
+            const userId = document.getElementById('loginUserId').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!userId || !password) {
+                alert('아이디와 비밀번호를 입력해주세요.');
+                return;
+            }
+
+            try {
+                const userRef = window.firebaseDB.ref(window.firebaseDB.database, `users/${userId}`);
+                const snapshot = await window.firebaseDB.get(userRef);
+
+                if (!snapshot.exists()) {
+                    alert('존재하지 않는 아이디입니다.');
+                    return;
+                }
+
+                const userData = snapshot.val();
+                if (userData.password !== password) {
+                    alert('비밀번호가 일치하지 않습니다.');
+                    return;
+                }
+
+                // Login success
+                game.userId = userId;
+                game.playerNickname = userData.nickname;
+                localStorage.setItem('pixwarUserId', userId);
+                localStorage.setItem('pixwarNickname', userData.nickname);
+
+                console.log(`Login success: ${userData.nickname} (${userId})`);
+
+                // Show lobby
+                document.getElementById('displayNickname').textContent = userData.nickname;
+                hideAllScreens();
+                document.getElementById('lobbyMain').classList.remove('hidden');
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('로그인에 실패했습니다. 다시 시도해주세요.');
+            }
+        }
+
+        function logout() {
+            if (confirm('로그아웃 하시겠습니까?')) {
+                game.userId = null;
+                game.playerNickname = null;
+                localStorage.removeItem('pixwarUserId');
+                localStorage.removeItem('pixwarNickname');
+                document.getElementById('loginUserId').value = '';
+                document.getElementById('loginPassword').value = '';
+                hideAllScreens();
+                document.getElementById('mainMenu').classList.remove('hidden');
+            }
+        }
+
+        function showCreateRoomSettings() {
+            hideAllScreens();
+            document.getElementById('createRoomSettings').classList.remove('hidden');
         }
 
         function showNicknameInput() {
@@ -999,9 +1178,14 @@
         }
 
         // Create a new room
-        async function createRoom() {
+        function createRoomWithSettings() {
+            const turnTimeLimit = parseInt(document.getElementById('turnTimeLimit').value);
+            createRoom(turnTimeLimit);
+        }
+
+        async function createRoom(turnTimeLimit = 120) {
             if (!game.playerNickname) {
-                alert('닉네임을 먼저 설정해주세요.');
+                alert('로그인이 필요합니다.');
                 return;
             }
 
@@ -1028,7 +1212,8 @@
                     color: colors[i],
                     name: i === 0 ? game.playerNickname : null,
                     ready: i === 0, // Host is auto-ready
-                    isAI: false // All initial players are human
+                    isAI: false, // All initial players are human
+                    skipCount: 0 // Track timeout skips
                 };
                 pieces[i] = createInitialPieces();
             }
@@ -1036,6 +1221,7 @@
             const roomData = {
                 maxPlayers: 4,
                 currentPlayers: 1,
+                turnTimeLimit: turnTimeLimit, // Room-specific turn time limit
                 players: players,
                 gameState: {
                     board: Array(14).fill(null).map(() => Array(14).fill(null)),
@@ -1505,17 +1691,22 @@
 
         // Start the game
         async function startGame() {
-            // Load room data to get AI player info
+            // Load room data to get AI player info and settings
             const roomRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}`);
             const snapshot = await window.firebaseDB.get(roomRef);
             const roomData = snapshot.val();
 
             if (roomData) {
-                // Update local game.players with AI info
+                // Load room settings
+                game.turnTimeLimit = roomData.turnTimeLimit || 120;
+                console.log(`🕒 Room turn time limit: ${game.turnTimeLimit} seconds`);
+
+                // Update local game.players with AI info and skip counts
                 for (let i = 0; i < 4; i++) {
                     if (roomData.players[i]) {
                         game.players[i].isAI = roomData.players[i].isAI || false;
                         game.players[i].name = roomData.players[i].name || game.players[i].name;
+                        game.players[i].skipCount = roomData.players[i].skipCount || 0;
                     }
                 }
             }
@@ -1958,8 +2149,8 @@
             // Show timer
             document.getElementById('turnTimerDisplay').style.display = 'block';
 
-            // Reset timer
-            game.turnTimeRemaining = 120;
+            // Reset timer to room's turn time limit
+            game.turnTimeRemaining = game.turnTimeLimit;
             updateTimerDisplay();
 
             // Start countdown
@@ -1967,15 +2158,19 @@
                 game.turnTimeRemaining--;
                 updateTimerDisplay();
 
-                // Time running out warning (last 30 seconds)
-                if (game.turnTimeRemaining === 30) {
-                    showMessage('⏰ 30초 남았습니다!');
+                // Dynamic warnings based on turn time limit
+                const thirtyPercent = Math.floor(game.turnTimeLimit * 0.25);
+                const tenPercent = Math.floor(game.turnTimeLimit * 0.08);
+
+                // Time running out warning (at 25% remaining)
+                if (game.turnTimeRemaining === thirtyPercent && thirtyPercent > 10) {
+                    showMessage(`⏰ ${thirtyPercent}초 남았습니다!`);
                     document.getElementById('turnTimerDisplay').style.color = 'orange';
                 }
 
-                // Last 10 seconds warning
-                if (game.turnTimeRemaining === 10) {
-                    showMessage('⚠️ 10초 남았습니다!');
+                // Last warning (at ~8% remaining)
+                if (game.turnTimeRemaining === tenPercent && tenPercent > 5) {
+                    showMessage(`⚠️ ${tenPercent}초 남았습니다!`);
                     document.getElementById('turnTimerDisplay').style.color = 'red';
                 }
 
@@ -2012,24 +2207,56 @@
         }
 
         async function handleTurnTimeout() {
-            showMessage('⏱️ 시간 초과! 턴을 넘깁니다.');
+            const currentPlayerIndex = game.currentPlayerIndex;
+            const currentPlayer = game.players[currentPlayerIndex];
 
-            // Only auto-pass if it's the current player's turn
-            if (game.currentPlayerIndex === game.playerId) {
-                // Auto-pass turn
-                game.passCount++;
+            console.log(`⏱️ Time out for player ${currentPlayerIndex} (${currentPlayer.name})`);
 
-                const numPlayers = game.players.filter(p => p.pieces && p.pieces.length > 0).length;
-                game.currentPlayerIndex = (game.currentPlayerIndex + 1) % numPlayers;
+            // Increment skip count
+            currentPlayer.skipCount = (currentPlayer.skipCount || 0) + 1;
 
-                try {
-                    await syncGameState();
-                } catch (error) {
-                    console.error('Error syncing after timeout:', error);
-                    // Rollback on error
-                    game.passCount--;
-                    game.currentPlayerIndex = (game.currentPlayerIndex - 1 + numPlayers) % numPlayers;
+            showMessage(`⏱️ ${currentPlayer.name}님 시간 초과! (${currentPlayer.skipCount}/3) 자리 비움`);
+
+            try {
+                // Update skip count in Firebase
+                const skipCountRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}/players/${currentPlayerIndex}/skipCount`);
+                await window.firebaseDB.set(skipCountRef, currentPlayer.skipCount);
+
+                // Check if player should be replaced with AI (3 or more timeouts)
+                if (currentPlayer.skipCount >= 3 && !currentPlayer.isAI) {
+                    console.log(`🤖 Player ${currentPlayerIndex} exceeded 3 timeouts. Replacing with AI.`);
+
+                    // Mark player as AI in Firebase
+                    const isAIRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}/players/${currentPlayerIndex}/isAI`);
+                    await window.firebaseDB.set(isAIRef, true);
+
+                    const nameRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}/players/${currentPlayerIndex}/name`);
+                    await window.firebaseDB.set(nameRef, `AI (${currentPlayer.name})`);
+
+                    // Update local state
+                    currentPlayer.isAI = true;
+                    currentPlayer.name = `AI (${currentPlayer.name})`;
+
+                    showMessage(`🤖 ${currentPlayer.name}이(가) 탈주하여 AI로 대체되었습니다.`);
                 }
+
+                // Only auto-pass if it's the current player's turn
+                if (game.currentPlayerIndex === game.playerId) {
+                    // Auto-pass turn
+                    game.passCount++;
+
+                    const numPlayers = game.players.filter(p => p.pieces && p.pieces.length > 0).length;
+                    game.currentPlayerIndex = (game.currentPlayerIndex + 1) % numPlayers;
+
+                    await syncGameState();
+
+                    // If next player is AI, trigger AI move
+                    if (game.players[game.currentPlayerIndex].isAI) {
+                        setTimeout(() => aiMove(), 500);
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling timeout:', error);
             }
         }
 
@@ -2741,12 +2968,18 @@
         }
 
         // Make functions globally accessible
+        window.showLoginScreen = showLoginScreen;
+        window.showSignupScreen = showSignupScreen;
+        window.login = login;
+        window.signup = signup;
         window.showNicknameInput = showNicknameInput;
         window.setNickname = setNickname;
         window.logout = logout;
         window.showHowToPlay = showHowToPlay;
         window.backToMainMenu = backToMainMenu;
         window.backToLobby = backToLobby;
+        window.showCreateRoomSettings = showCreateRoomSettings;
+        window.createRoomWithSettings = createRoomWithSettings;
         window.createRoom = createRoom;
         window.showRoomList = showRoomList;
         window.joinRoom = joinRoom;
