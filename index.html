@@ -556,11 +556,6 @@
             color: #F44336;
         }
 
-        .player-slot.host::after {
-            content: '👑';
-            margin-left: 10px;
-        }
-
         /* Mobile Optimization */
         @media screen and (max-width: 768px) {
             body {
@@ -636,7 +631,7 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.9.4</span>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v2.0.0</span>
             <h1>Pixwar</h1>
         </div>
 
@@ -744,7 +739,7 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
-            <span class="version-badge">v1.9.4</span>
+            <span class="version-badge">v2.0.0</span>
             <h1>Pixwar</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
@@ -876,7 +871,6 @@
             playerId: null, // 0-3
             playerColor: null, // 'blue', 'red', 'yellow', or 'green'
             playerNickname: null,
-            isHost: false,
             board: Array(14).fill(null).map(() => Array(14).fill(null)),
             players: [
                 { name: 'Player 1', color: 'blue', pieces: [], cornerX: 0, cornerY: 0, isAI: false },
@@ -1041,8 +1035,6 @@
             const roomData = {
                 maxPlayers: 4,
                 currentPlayers: 1,
-                host: game.playerNickname,
-                hostId: 0,
                 players: players,
                 gameState: {
                     board: Array(14).fill(null).map(() => Array(14).fill(null)),
@@ -1066,7 +1058,6 @@
                 game.roomCode = roomCode;
                 game.playerId = 0;
                 game.playerColor = 'blue';
-                game.isHost = true;
 
                 // Show room code to user
                 document.getElementById('displayRoomCode').textContent = roomCode;
@@ -1107,11 +1098,6 @@
                 const playerSlot = document.createElement('div');
                 playerSlot.className = `player-slot ${player.connected ? 'connected' : 'waiting'}`;
 
-                // Add host indicator
-                if (i === roomData.hostId) {
-                    playerSlot.classList.add('host');
-                }
-
                 const colorDot = document.createElement('div');
                 colorDot.className = `player-color-dot ${colors[i]}`;
 
@@ -1137,8 +1123,8 @@
 
             waitingMessage.textContent = `${connectedPlayers}/4 플레이어 | ${readyPlayers}명 준비 완료`;
 
-            // Show/hide ready button for non-host players
-            if (game.playerId !== roomData.hostId && !roomData.gameState.gameStarted) {
+            // Show ready button for all players
+            if (!roomData.gameState.gameStarted) {
                 readyBtn.style.display = 'inline-block';
                 const myPlayer = roomData.players[game.playerId];
                 if (myPlayer && myPlayer.ready) {
@@ -1154,13 +1140,20 @@
                 readyBtn.style.display = 'none';
             }
 
-            // Enable/disable start button for host
-            if (game.playerId === roomData.hostId) {
-                startBtn.disabled = readyPlayers < connectedPlayers;
-                if (startBtn.disabled) {
-                    startBtn.title = '모든 플레이어가 준비해야 합니다';
+            // Show start button for everyone - enable only if all ready
+            startBtn.style.display = 'inline-block';
+            startBtn.disabled = readyPlayers < connectedPlayers;
+            if (startBtn.disabled) {
+                startBtn.title = '모든 플레이어가 준비해야 합니다';
+            } else {
+                if (connectedPlayers === 2) {
+                    startBtn.title = '2명으로 게임 시작 (AI 없음)';
+                } else if (connectedPlayers === 3) {
+                    startBtn.title = '3명으로 게임 시작 (AI 1명)';
+                } else if (connectedPlayers === 1) {
+                    startBtn.title = '혼자 플레이 (AI 3명과 대전)';
                 } else {
-                    startBtn.title = connectedPlayers === 1 ? '혼자 플레이 (AI 3명과 대전)' : `${connectedPlayers}명으로 게임 시작`;
+                    startBtn.title = `${connectedPlayers}명으로 게임 시작`;
                 }
             }
         }
@@ -1178,7 +1171,7 @@
 
         // Host starts the game
         async function startGameByHost() {
-            if (!game.roomCode || !game.isHost) return;
+            if (!game.roomCode) return;
 
             const roomRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}`);
             const snapshot = await window.firebaseDB.get(roomRef);
@@ -1194,20 +1187,40 @@
                 return;
             }
 
-            // Fill empty slots with AI players
+            // Fill empty slots with AI players based on player count
             const playersRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}/players`);
             const updates = {};
 
-            for (let i = 0; i < 4; i++) {
-                if (!roomData.players[i].connected) {
-                    // Set empty slots as AI players
-                    updates[`${i}/connected`] = true;
-                    updates[`${i}/name`] = `AI ${i + 1}`;
-                    updates[`${i}/ready`] = true;
-                    updates[`${i}/isAI`] = true;
-
-                    // Update local game state
-                    game.players[i].isAI = true;
+            // Determine AI setup based on connected players
+            if (connectedPlayers === 2) {
+                // 2 players: No AI, keep slots 2 and 3 empty
+                for (let i = 0; i < 4; i++) {
+                    if (!roomData.players[i].connected) {
+                        updates[`${i}/isAI`] = false;
+                    }
+                }
+            } else if (connectedPlayers === 3) {
+                // 3 players: Add 1 AI to the 4th slot
+                for (let i = 0; i < 4; i++) {
+                    if (!roomData.players[i].connected) {
+                        updates[`${i}/connected`] = true;
+                        updates[`${i}/name`] = `AI ${i + 1}`;
+                        updates[`${i}/ready`] = true;
+                        updates[`${i}/isAI`] = true;
+                        game.players[i].isAI = true;
+                        break; // Only add one AI
+                    }
+                }
+            } else {
+                // 1 or 4 players: Fill all empty slots with AI
+                for (let i = 0; i < 4; i++) {
+                    if (!roomData.players[i].connected) {
+                        updates[`${i}/connected`] = true;
+                        updates[`${i}/name`] = `AI ${i + 1}`;
+                        updates[`${i}/ready`] = true;
+                        updates[`${i}/isAI`] = true;
+                        game.players[i].isAI = true;
+                    }
                 }
             }
 
@@ -1446,7 +1459,6 @@
                 game.roomCode = roomCode;
                 game.playerId = availableSlot;
                 game.playerColor = colors[availableSlot];
-                game.isHost = false;
 
                 console.log(`Joined room: ${roomCode} as Player ${availableSlot} (${game.playerColor})`);
 
@@ -1520,12 +1532,6 @@
             // Start listening to game state changes
             listenToGameState();
 
-            // If host, mark game as started
-            if (game.isHost) {
-                const gameStateRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}/gameState/gameStarted`);
-                await window.firebaseDB.set(gameStateRef, true);
-            }
-
             game.gameStarted = true;
             updateMessage();
         }
@@ -1533,6 +1539,22 @@
         // Listen to real-time game state changes from Firebase
         function listenToGameState() {
             const gameStateRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}/gameState`);
+            const playersRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}/players`);
+
+            // Listen to players data to update isAI flags
+            window.firebaseDB.onValue(playersRef, (snapshot) => {
+                const players = snapshot.val();
+                if (!players) return;
+
+                // Update isAI flags from Firebase
+                for (let i = 0; i < 4; i++) {
+                    if (players[i]) {
+                        game.players[i].isAI = players[i].isAI || false;
+                        game.players[i].name = players[i].name || game.players[i].name;
+                        console.log(`Player ${i}: isAI = ${game.players[i].isAI}, name = ${game.players[i].name}`);
+                    }
+                }
+            });
 
             game.dbListener = window.firebaseDB.onValue(gameStateRef, (snapshot) => {
                 const state = snapshot.val();
@@ -1553,14 +1575,20 @@
                 // Update pieces - ensure proper array conversion with correct indices
                 const pieces0 = state.pieces[0] || state.pieces['0'] || {};
                 const pieces1 = state.pieces[1] || state.pieces['1'] || {};
+                const pieces2 = state.pieces[2] || state.pieces['2'] || {};
+                const pieces3 = state.pieces[3] || state.pieces['3'] || {};
 
                 game.players[0].pieces = Array.from({ length: 21 }, (_, i) => pieces0[i]).filter(p => p);
                 game.players[1].pieces = Array.from({ length: 21 }, (_, i) => pieces1[i]).filter(p => p);
+                game.players[2].pieces = Array.from({ length: 21 }, (_, i) => pieces2[i]).filter(p => p);
+                game.players[3].pieces = Array.from({ length: 21 }, (_, i) => pieces3[i]).filter(p => p);
 
                 console.log('✅ Local game state updated:', {
                     board: game.board,
                     player0Pieces: game.players[0].pieces.length,
                     player1Pieces: game.players[1].pieces.length,
+                    player2Pieces: game.players[2].pieces.length,
+                    player3Pieces: game.players[3].pieces.length,
                     currentPlayerIndex: game.currentPlayerIndex,
                     myPlayerId: game.playerId,
                     isMyTurn: game.currentPlayerIndex === game.playerId
@@ -1601,7 +1629,9 @@
                 passCount: game.passCount,
                 pieces: {
                     0: game.players[0].pieces,
-                    1: game.players[1].pieces
+                    1: game.players[1].pieces,
+                    2: game.players[2].pieces,
+                    3: game.players[3].pieces
                 }
             });
         }
@@ -2459,7 +2489,6 @@
         function startSinglePlayerGame() {
             game.playerId = 0;
             game.playerColor = 'blue';
-            game.isHost = true;
             game.roomCode = 'LOCAL';
 
             // Set AI players
@@ -2675,12 +2704,8 @@
                 // We'll clean up by removing the room
             }
 
-            // If host, delete room
-            if (game.isHost && game.roomCode) {
-                const roomRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}`);
-                await window.firebaseDB.remove(roomRef);
-            } else if (game.roomCode) {
-                // Just disconnect
+            // Disconnect from room
+            if (game.roomCode && game.playerId !== null) {
                 const connectedRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${game.roomCode}/players/${game.playerId}/connected`);
                 await window.firebaseDB.set(connectedRef, false);
             }
@@ -2693,7 +2718,6 @@
             game.roomCode = null;
             game.playerId = null;
             game.playerColor = null;
-            game.isHost = false;
             game.gameStarted = false;
             game.selectedPieceIndex = null;
             game.passCount = 0;
