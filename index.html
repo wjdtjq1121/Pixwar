@@ -631,7 +631,7 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v3.0.1</span>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v3.0.2</span>
             <h1>Pixwar</h1>
         </div>
 
@@ -778,7 +778,7 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
-            <span class="version-badge">v3.0.1</span>
+            <span class="version-badge">v3.0.2</span>
             <h1>Pixwar</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
@@ -1470,8 +1470,8 @@
 
                     showMessage(`🤖 ${player.name}님이 재접속하지 않아 AI로 대체되었습니다.`);
 
-                    // If it's AI's turn, trigger AI move
-                    if (game.currentPlayerIndex === i) {
+                    // If it's AI's turn and not the current player, trigger AI move
+                    if (game.currentPlayerIndex === i && i !== game.playerId) {
                         setTimeout(() => {
                             aiMove();
                         }, 1000);
@@ -1704,9 +1704,14 @@
                 // Update local game.players with AI info and skip counts
                 for (let i = 0; i < 4; i++) {
                     if (roomData.players[i]) {
-                        game.players[i].isAI = roomData.players[i].isAI || false;
+                        // Only set isAI if it's explicitly true in Firebase, otherwise false
+                        game.players[i].isAI = roomData.players[i].isAI === true;
                         game.players[i].name = roomData.players[i].name || game.players[i].name;
                         game.players[i].skipCount = roomData.players[i].skipCount || 0;
+                        console.log(`🎮 InitGame Player ${i}: isAI = ${game.players[i].isAI}, myPlayerId = ${game.playerId}, name = ${game.players[i].name}`);
+                    } else {
+                        // Ensure unconnected players are not AI unless explicitly set
+                        game.players[i].isAI = false;
                     }
                 }
             }
@@ -2097,9 +2102,10 @@
             const currentPlayer = game.players[game.currentPlayerIndex];
             const isMyTurn = game.currentPlayerIndex === game.playerId;
 
-            console.log(`🎯 updateMessage: Player ${game.currentPlayerIndex}, isAI=${currentPlayer.isAI}, name=${currentPlayer.name}`);
+            console.log(`🎯 updateMessage: Player ${game.currentPlayerIndex}, isAI=${currentPlayer.isAI}, myPlayerId=${game.playerId}, name=${currentPlayer.name}`);
 
-            if (currentPlayer.isAI) {
+            // Only trigger AI move if it's explicitly set as AI and it's not the current human player
+            if (currentPlayer.isAI === true && game.currentPlayerIndex !== game.playerId) {
                 console.log(`🤖 AI turn detected for player ${game.currentPlayerIndex}`);
                 messageBox.textContent = `AI (${currentPlayer.color}) is thinking...`;
                 messageBox.className = 'message opponent-turn';
@@ -2141,7 +2147,7 @@
             const currentPlayer = game.players[game.currentPlayerIndex];
 
             // Only start timer for human players
-            if (currentPlayer.isAI) {
+            if (currentPlayer.isAI === true) {
                 document.getElementById('turnTimerDisplay').style.display = 'none';
                 return;
             }
@@ -2250,8 +2256,8 @@
 
                     await syncGameState();
 
-                    // If next player is AI, trigger AI move
-                    if (game.players[game.currentPlayerIndex].isAI) {
+                    // If next player is AI and not the current player, trigger AI move
+                    if (game.players[game.currentPlayerIndex].isAI === true && game.currentPlayerIndex !== game.playerId) {
                         setTimeout(() => aiMove(), 500);
                     }
                 }
@@ -2908,7 +2914,7 @@
 
                     // Check if next player is also AI
                     setTimeout(() => {
-                        if (game.players[game.currentPlayerIndex].isAI) {
+                        if (game.players[game.currentPlayerIndex].isAI === true && game.currentPlayerIndex !== game.playerId) {
                             aiMove();
                         }
                     }, 500);
